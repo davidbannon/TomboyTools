@@ -8,21 +8,19 @@ unit commonmark;
     This code is licensed under BSD 3-Clause Clear License, see file License.txt
     or https://spdx.org/licenses/BSD-3-Clause-Clear.html
 
-    ------------------
-}
+    Exports a note in a subset of commonmark
 
-{   Exports a note in a subset of commonmark
-
-    This unit is, Feb 2021 just about same as one in tomboy-ng except that here we have
-    moved the normalising code into a standalone unit, should do exactly the same in tomboy-ng
+    This unit is, June 2021 the same as one in tomboy-ng.
 
     Create the object, optionally give it a directory to look in and set DoPOFile. Call GetMDcontent()
     with an ID (that is, a filename without extension) and a list to fill in with content.
     Free.
 
-    History
-        2020-12-22  Extracted from the NextCloud Notes Branch
-        2020-??-??  Moved the Normalising code into a stand alone unit.
+    HISTORY
+    2020-12-22  Extracted from the NextCloud Notes Branch
+    2020-??-??  Moved the Normalising code into a stand alone unit.
+    2021/06/15  Format lines that are all mono differenly so they show as a block.
+    2021/06/29  Merged this file back to tomboy-ng
 }
 
 interface
@@ -46,14 +44,19 @@ TExportCommon = class        // based on TT export_notes, just takes a note ID a
 			function ReplaceAngles(const Str: AnsiString): AnsiString;
 			procedure SayDebug(st: string; Always: boolean=false);
 			function TitleFromID(ID: string; Munge: boolean; out LenTitle: integer): string;
+            function IsAllMono(St : String) : boolean;
+            procedure MakeMonoBlock(var St: string);
+            procedure ConvertMonoBlocks(STL: TStringList);
 
     public
         DebugMode : boolean;
         NotesDir : string;       // dir were we expect to find our TB notes
 
-                        { Takes a note ID (no extension) and fills out the passed StringList
-                          that must have been created) with a commonmark version of the note.
-                          returns an empty list on error. }
+                        // Takes a note ID (no extension) and fills out the passed StringList
+                        // that must have been created) with a commonmark version of the note.
+                        // returns an empty list on error. If ID is an ID only, assumes note is
+                        // in repo, else ID must contain a FFN inc path nad extension for single
+                        // note mode.
         function GetMDcontent(ID : string; STL : TstringList) : boolean;
 
 
@@ -62,7 +65,7 @@ end;
 
 implementation
 
-uses LazFileUtils{$ifdef LCL}, lazlogger {$endif}, laz2_DOM, laz2_XMLRead, notenormal;
+uses LazFileUtils{$ifdef LCL}, lazlogger {$endif}, laz2_DOM, laz2_XMLRead, notenormal, tb_utils;
 
 
 function TExportCommon.GetMDcontent(ID : string; STL : TStringList): boolean;
@@ -73,7 +76,9 @@ var
     Index : integer;
     Normaliser : TNoteNormaliser;
 begin
-        StL.LoadFromFile(NotesDir + ID + '.note');
+        if IDLooksOK(ID) then
+            StL.LoadFromFile(NotesDir + ID + '.note')
+        else StL.LoadFromFile(ID);
         Index := FindInStringList(StL, '<title>');       // include < and > in search term so sure its metadate
         if Index > -1 then
             while Index > -1 do begin
@@ -91,6 +96,7 @@ begin
         while Index < StL.Count do StL.Delete(Index);
         ProcessHeadings(StL);                                    // Makes Title big too !
         ProcessMarkUp(StL);
+        ConvertMonoBlocks(STL);
         result := (Stl.Count > 2);
 end;
 
@@ -148,13 +154,18 @@ var
     Doc : TXMLDocument;
     Node : TDOMNode;
     Index : integer = 1;
+    FFN : string;
 begin
-    if not FileExists(NotesDir + ID + '.note') then begin
-        debugln('ERROR : File does not exist = '  + NotesDir + ID + '.note');
-        LenTitle := 0;
-        exit('');
+    FFN := NotesDir + ID + '.note';
+    if not FileExists(FFN) then begin
+          FFN := ID;                        // OK, maybe is a SingleNote ?
+          if not FileExists(FFN) then begin
+                debugln('ERROR : File does not exist = '  + FFN);
+                LenTitle := 0;
+                exit('');
+	        end;
 	end;
-	ReadXMLFile(Doc, NotesDir + ID + '.note');
+    ReadXMLFile(Doc, FFN);
     try
         Node := Doc.DocumentElement.FindNode('title');
         result := Node.FirstChild.NodeValue;
@@ -173,6 +184,59 @@ begin
         Result := copy(Result, 1, 32);
 	end;
     LenTitle := length(Result);
+end;
+
+// -------------- Convert to Fixed width BLOCK text -------------
+
+// We look for a line wrapped in a pair of backticks, allow white space to left
+function TExportCommon.IsAllMono(St: String): boolean;
+var
+    I : integer = 1;
+begin
+    // for a st = 'abc' the test "if St[3] = '`'" is valid
+    if St.CountChar('`') <> 2 then exit(False);
+    while I <= St.Length do begin
+        if St[i] = '`' then begin
+            i := St.Length;
+            while (St[i] in [' ', char(10), char(13) ])
+                    and (i > 0) do dec(i);
+            exit((I > 0) and (St[i] = '`'));             // Absolutly must exit here, we have played with i
+		end;
+        if  St[i] = ' '  then exit(False);
+        inc(i);
+	end;
+    Result := False;
+end;
+
+procedure TExportCommon.MakeMonoBlock(var St : string);
+// Remove two backticks, add four leading spaces
+begin
+    St := St.Remove(St.IndexOf('`'), 1);
+    St := St.Remove(St.IndexOf('`'), 1);
+    St := '    ' + St;
+end;
+
+procedure TExportCommon.ConvertMonoBlocks(STL : TStringList);
+var
+    I : integer = 0;
+    St : string;
+    PrevMono : boolean = false;
+begin
+    while i < Stl.Count do begin
+        if PrevMono and (Stl[i] = '') then begin
+            StL.Delete(i);
+            PrevMono := False;
+            continue;
+		end;
+		if IsAllMono(StL[i]) then begin
+            St := STL[i];
+            MakeMonoBlock(St);
+            STl.Insert(i, St);
+            STL.Delete(i+1);
+            PrevMono := True;
+		end else PrevMono := False;
+		inc(i);
+	end;
 end;
 
 // This version uses the CommonMark model of noting heading with ---- ===== on line underneath

@@ -39,6 +39,7 @@ TNoteNormaliser = class
         procedure MoveTagUp(const StL: TStringList; const StIndex: integer; var TagSize: integer);
 		function OffTagAtStart(St: string): integer;
 		function OnTagAtEnd(St: string): integer;
+		function RemoveRedundentTag(var St: string): boolean;
     public
         procedure NormaliseList(STL: TStringList);
 end;
@@ -153,6 +154,47 @@ begin
     StL.Delete(StIndex+2);
 end;
 
+// When there is an off tag and and complementry on tag (or visa versa) with nothing
+// between they are redundent and we remove them right here and now. No excuses !
+// Rets True is it made a change, repeat until it finds nothing to do.
+function TNoteNormaliser.RemoveRedundentTag(var St : string) : boolean;
+var
+    OffTag : integer = 0;            // String Helpers are zero based !
+    Tag1, Tag2 : string;      // migth get, eg monospace for a fixed spacing tag
+
+    function Removed(const OffSet : integer; TagSt : string; replace : boolean) : boolean;
+    begin
+        if OffSet < 0 then exit(False);
+        if St.Substring(OffSet, length(TagSt)) = TagSt then begin
+            St := St.Remove(OffSet, length(Tag1 + Tag2) +1);
+            if Replace then
+                St := St.Insert(OffSet, ' ');
+            exit(True);
+		end else Result := False;
+	end;
+
+begin
+    while(true) do begin
+        OffTag := st.IndexOf('</', OffTag);
+        if OffTag >= 0 then begin
+            Tag1 := St.Substring(OffTag, st.IndexOf('>', OffTag) - OffTag +1);     // ie thats full tag
+            Tag2 := Tag1.Remove(Tag1.IndexOf('/', 1), 1);
+            // we target Tag1Tag2 or reversed, with and without a space between
+            if Removed(OffTag, Tag1+Tag2, False) then exit(True);
+            if Removed(OffTag, Tag1+' '+Tag2, True) then exit(True);
+            if Removed(OffTag-length(Tag2), Tag2+Tag1, False) then exit(True);
+            if Removed(OffTag-length(Tag2), Tag2+' ' + Tag1, True) then exit(True);
+            // If still here, that offtag was not associated with an immediate on tag.
+            inc(OffTag);
+            continue;
+		end else exit(False);       // no more offtags left to consider or maybe on offtags at all
+	end
+     { Loop: Find next offtag, exit false if we cannot find one
+      try and find a matching ontag with nothing between.
+      If above fails, goto LOOP:
+    }
+end;
+
 procedure TNoteNormaliser.NormaliseList(STL : TStringList);
 var
     TagSize, StIndex : integer;
@@ -187,6 +229,16 @@ begin
         if TempSt.endswith(' ')  then
             Stl[StIndex] := TempSt.TrimRight;
         dec(StIndex);
+	end;
+    StIndex := 0;                      // Redundent, sequencial tags.
+    while StIndex < StL.Count do begin
+        TempSt := STL[StIndex];
+        if RemoveRedundentTag(TempSt) then begin
+            while RemoveRedundentTag(TempSt) do;        // in case more than one in line
+            StL.Insert(StIndex, TempSt);
+            StL.Delete(StIndex + 1);
+		end;
+		inc(StIndex);
 	end;
 end;
 
