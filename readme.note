@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<note version="0.3" xmlns:link="http://beatniksoftware.com/tomboy/link" xmlns:size="http://beatniksoftware.com/tomboy/size" xmlns="http://beatniksoftware.com/tomboy">
+  <title>TomboyTools</title>
+  
+<text xml:space="preserve"><note-content version="0.1"><underline>TomboyTools</underline>
+
+This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown and HTML.
+
+You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, tomboy-ng or, perhaps, G-Note.
+
+While primarily made for my own use or, from time to time to help a tomboy-ng user, I can make a packaged version if you need one. Best to ask on the tomboy-ng issues page. https://github.com/tomboy-notes/tomboy-ng/issues
+
+![TTScreen](https://github.com/davidbannon/TomboyTools/blob/master/Gallery/TTScreen.png)
+
+
+</note-content></text>
+  <last-change-date>2021-07-30T20:25:43.7166606+10:00</last-change-date>
+  <last-metadata-change-date>2021-07-30T20:25:43.7166606+10:00</last-metadata-change-date>
+  <create-date>2021-07-30T20:25:43.7166606+10:00</create-date>
+  <cursor-position>1</cursor-position>
+  <selection-bound-position>1</selection-bound-position>
+  <width>695</width>
+  <height>505</height>
+  <x>758</x>
+  <y>231</y>
+  <open-on-startup>False</open-on-startup>
+</note>
