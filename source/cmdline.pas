@@ -15,10 +15,14 @@ unit cmdline;
         * help is on command line
         * there was enough commandline to tell us what to do and it was done
     Finished() will return False if
-        * There were no command line entries.
+        * There were no command line entries other than source and destination
 
 
 -----------------------------------------------------------------
+
+Even Newer CLI Mode, if we have source and / or destination on the command line
+but no action, we will proceed to GUI using whatever of those settings we have.
+July 2021
 
 New CLI model, if there is any command line entries, we stay in CLI mode. An empty
 command line (after the command itself) will proceed to GUI mode.
@@ -90,7 +94,8 @@ uses
 
 type TToolMode = (
     ActNote2md, ActNote2txt, ActMd2note, ActTxt2note, ActGUI, ActExit,
-    ActNote2POT    // convert note to a pot file for translation
+    ActNote2POT,    // convert note to a pot file for translation
+    ActJustDir      // we have just source and or destination directories, go to gui
     );
 
 {   ModeNotSet,     // No mode setting command line offered, error
@@ -115,8 +120,10 @@ procedure ShowHelp();
 begin
     debugln('');
     DebugLn('TomboyTools, a small set of tools for tomboy-ng (and Tomboy)');
-    debugln('With no command line options, will start GUI.');
     debugln('');
+    debugln('GUI Mode - With no command line options or with ');
+    debugln('just -s --source and / or -d -destination will start GUI');
+    debugln('Command Line Mode -');
 
     debugln(' -a --action=[note2md; note2txt; md2note; txt2note, note2pot] - Required');
     debugln(' -s --source=[dir or KEY]   -d --destination= [dir or KEY]');
@@ -132,9 +139,14 @@ begin
 
     debugln(' -t --title-line   Retain filename, Note Title is first line of a file.');
     debugln(' -V --verbose      Tells us what its doing');
+    debugln(' -e --examples     Print some example command lines');
     debugln(' --help            Print this, exit');
 
     debugln(' ');
+end;
+
+procedure ShowExamples();
+begin
     debugln('Examples - ');
     debugln(' TomboyTools --action=note2md --destination=~/Desktop -b "My Notebook"');
     debugln(' Will exports all notes in "My Notebook" from the tomboy-ng note repo');
@@ -239,7 +251,7 @@ var
 begin
     result := ActExit;
     if ParamCount = 0 then exit(ActGUI);         // no parameters, must be a GUI app
-    CmdLineErrorMsg := Application.CheckOptions('Vha:s:d:b:n:f:t', 'verbose help action: source: destination: notebook: note: file: title-line');
+    CmdLineErrorMsg := Application.CheckOptions('Vha:s:d:b:n:f:te', 'examples verbose help action: source: destination: notebook: note: file: title-line');
     if CmdLineErrorMsg <> '' then begin
         debugln( CmdLineErrorMsg);
         showhelp();
@@ -249,10 +261,17 @@ begin
         showhelp();
         exit(ActExit);
 	end;
+    if Application.HasOption('e', 'examples') then begin
+        showExamples();
+        exit(ActExit);
+    end;
+
     // OK, its got cmd parameters without errors but is it correct ?
     if Application.HasOption('a', 'action') then
         Action := Application.GetOptionValue('a', 'action')
     else begin
+        if Application.HasOption('s', 'source') or Application.HasOption('d', 'destination') then
+            exit(ActGUI);           // Special case, we use the source and dest dir in the Export GUI, ignore in Import
         showhelp();
         exit(ActExit);
 	end;

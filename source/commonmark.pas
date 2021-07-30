@@ -21,6 +21,9 @@ unit commonmark;
     2020-??-??  Moved the Normalising code into a stand alone unit.
     2021/06/15  Format lines that are all mono differenly so they show as a block.
     2021/06/29  Merged this file back to tomboy-ng
+    2021/07/22  Make GetMDcontent more tolerent of passed ID/FFN
+    2021/07/30  Now use someutuls fro tb_util instead of implementing itself. Must sync to TB-NG
+    2021/07/30  Use the RemoveNoteMetaData( from TT_Utils, need merge TT_utils with TB_Utils
 }
 
 interface
@@ -41,9 +44,9 @@ TExportCommon = class        // based on TT export_notes, just takes a note ID a
 			procedure ProcessHeadings(StL: TStringList);
 			procedure ProcessMarkUp(StL: TStringList);
 			function RemoveNextTag(var St: String; out Tag: string): integer;
-			function ReplaceAngles(const Str: AnsiString): AnsiString;
-			procedure SayDebug(st: string; Always: boolean=false);
-			function TitleFromID(ID: string; Munge: boolean; out LenTitle: integer): string;
+//			function ReplaceAngles(const Str: AnsiString): AnsiString;
+//			procedure SayDebug(st: string; Always: boolean=false);
+//			function TitleFromID(ID: string; Munge: boolean; out LenTitle: integer): string;
             function IsAllMono(St : String) : boolean;
             procedure MakeMonoBlock(var St: string);
             procedure ConvertMonoBlocks(STL: TStringList);
@@ -52,11 +55,10 @@ TExportCommon = class        // based on TT export_notes, just takes a note ID a
         DebugMode : boolean;
         NotesDir : string;       // dir were we expect to find our TB notes
 
-                        // Takes a note ID (no extension) and fills out the passed StringList
-                        // that must have been created) with a commonmark version of the note.
-                        // returns an empty list on error. If ID is an ID only, assumes note is
-                        // in repo, else ID must contain a FFN inc path nad extension for single
-                        // note mode.
+                        // Takes a note ID (no extension) or a FFN inc path and .note
+                        // and fills out the passed StringList that must have been created)
+                        // with a commonmark version of the note.
+                        // returns an empty list on error.
         function GetMDcontent(ID : string; STL : TstringList) : boolean;
 
 
@@ -72,34 +74,45 @@ function TExportCommon.GetMDcontent(ID : string; STL : TStringList): boolean;
 { This is same as function in TT but I have removed parts that do file i/o
   I am thinking I would be better using some XML methods, might avoid g-Note issues too. }
 var
-    LTitle : integer;
-    Index : integer;
+//    LTitle : integer;
+//    Index : integer;
     Normaliser : TNoteNormaliser;
 begin
-        if IDLooksOK(ID) then
+        {if IDLooksOK(ID) then
             StL.LoadFromFile(NotesDir + ID + '.note')
-        else StL.LoadFromFile(ID);
-        Index := FindInStringList(StL, '<title>');       // include < and > in search term so sure its metadate
+        else
+             StL.LoadFromFile(ID); }
+        // We may get an ID or a FFN inc path, lets try both.
+        if FileExists(ID) then
+                StL.LoadFromFile(ID)
+        else
+            if FileExists(NotesDir + ID + '.note') then
+                   StL.LoadFromFile(NotesDir + ID + '.note')
+            else exit(False);
+
+(*        Index := FindInStringList(StL, '<title>');       // include < and > in search term so sure its metadate
         if Index > -1 then
             while Index > -1 do begin
                 StL.Delete(0);
                 dec(Index);
-			end;
+			end;  *)
         // OK, now first line contains the title but some lines may have tags wrong side of \n, so Normalise
         Normaliser := TNoteNormaliser.Create;
         Normaliser.NormaliseList(StL);
         Normaliser.Free;
         //NormaliseList(StL);
         StL.Delete(0);
-        StL.Insert(0, TitleFromID(ID, False, LTitle));
-        Index := FindInStringList(StL, '</note-content>');       // but G-Note does not bother with nice newlines ????
-        while Index < StL.Count do StL.Delete(Index);
+//        StL.Insert(0, TitleFromID(ID, False, LTitle));
+        STL.Insert(0, GetTitleFromFFN(NotesDir + ID + '.note', False));
+        RemoveNoteMetaData(STL);
+(*        Index := FindInStringList(StL, '</note-content>');       // but G-Note does not bother with nice newlines ????
+        while Index < StL.Count do StL.Delete(Index);        *)
         ProcessHeadings(StL);                                    // Makes Title big too !
         ProcessMarkUp(StL);
         ConvertMonoBlocks(STL);
         result := (Stl.Count > 2);
 end;
-
+(*
 function TExportCommon.ReplaceAngles(const Str : AnsiString) : AnsiString;
 var
     index : longint = 1;
@@ -129,14 +142,15 @@ begin
       inc(Index);
 	end;
     Result := Result + Copy(Str, Start, Index - Start);
-end;
+end;      *)
 
-
+(*
 procedure TExportCommon.SayDebug(st: string; Always : boolean = false);
 begin
     if not (DebugMode or Always) then exit;
     {$ifdef LCL}Debugln{$else}writeln{$endif}(St);
 end;
+*)
 
 function TExportCommon.FindInStringList(const StL : TStringList; const FindMe : string) : integer;
 var
@@ -149,6 +163,8 @@ begin
 	end;
 	result := -1;
 end;
+
+(*
 function TExportCommon.TitleFromID(ID: string; Munge : boolean; out LenTitle : integer): string;
 var
     Doc : TXMLDocument;
@@ -184,7 +200,7 @@ begin
         Result := copy(Result, 1, 32);
 	end;
     LenTitle := length(Result);
-end;
+end;         *)
 
 // -------------- Convert to Fixed width BLOCK text -------------
 
@@ -407,7 +423,8 @@ begin
         if StrikeoutOn then TempSt := TempSt + '~~';
         if MonoOn then TempSt := TempSt + '`';
         if SmallOn then TempSt := TempSt + '</sub></html>';
-        TempSt := ReplaceAngles(TempSt);                                  // +++++++++++++++++++++
+        //TempSt := ReplaceAngles(TempSt);                                  // +++++++++++++++++++++
+        TempSt := RestoreBadXMLChar(TempSt);
         StL.Insert(StIndex, TempSt);
         StL.Delete(StIndex + 1);
 	end;

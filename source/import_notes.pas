@@ -43,6 +43,7 @@ type
         function ChangeSmallFont(var St: string): boolean;
         function ChangeTag(var St: string; const ChangeFrom, ChangeToLead,
             ChangeToTrail: string): boolean;
+        procedure DoLineHeadings(const STL: TStringList);
         function ImportFile(FullFileName: string): boolean;
         function MarkUpMarkDown(Cont: TStringList): boolean;
                             {  Returns the 1 based pos of the passed Tag, Leading says its a leading tag
@@ -58,7 +59,8 @@ type
         DestinationDir : string;        // Required, dir to save notes to
         Mode : string;                  // ie plaintext, markdown ....
         ImportNames : TStringList;      // A list of full file names to import, default is filename will become title
-        FirstLineIsTitle : boolean;       // if true, first line of note becomes title
+        FirstLineIsTitle : boolean;     // if true, first line of note becomes title
+        KeepFileName : boolean;         // The note will have same base name as import.
         NoteBook : string;              // Maybe empty, if not, imported notes will go into this notebook.  ToDo : make this work
         function Execute(): integer;    // you know all you need, go do it.
         constructor Create;
@@ -112,10 +114,66 @@ backticks, ` at either end will make code, use for monospace text.
 Stikeout is not supported.
 a line starting with ###space  is a  bold, large line
 a line starting with ##space is a bold, huge line
+A line that is followed by some ===== or ------ are headings, huge and Large
 we ignore #space, have other ways of finding title.
+
 }
 
+// Iterates over list looking for a line that is either "------" or "======"  and if
+// it finds one, removes that line and makes line ABOVE a header.
+// Setext - one or more = or - with up to three leading spaces and any number of training whitespace
+// Sigh ....
 
+procedure TImportNotes.DoLineHeadings(const STL : TStringList);
+var
+    i : integer = 1;            // Line 0 is the heading
+
+                    // Ret true if passed line is a SeText line, https://spec.commonmark.org/
+    function IsSeText(const St : string; Se : char) : boolean;
+    var
+        j : integer = 1;
+        SeCount : integer = 0;
+    begin
+        Result := false;
+        while j <= St.length do begin
+            if St[j] = Se then begin
+                inc(SeCount);
+                inc(j);
+                continue;
+            end;
+            // If its not a Se, nor whitespace, cannot be a heading.
+            if (not (St[j] in [ ' ', #10, #13])) then exit(false);
+            // only allowed 3 spaces at left
+            if (J > 3) and (SeCount = 0) then exit(false);
+            inc(j);
+        end;
+        result := SeCount > 0;
+    end;
+                    // Will remove current line and make previous line a Heading.
+    procedure MakeHeading(IsHuge : boolean);
+    var
+        St : string;
+    begin
+        StL.Delete(i);
+        if i > 1 then begin
+            St := StL[i-1];
+            if IsHuge then
+                St := '<size:huge>' + St + '</size:huge>'
+            else St := '<size:large>' + St + '</size:large>';
+            StL.Delete(i-1);
+            StL.Insert(i-1, St);
+        end;
+    end;
+
+begin
+    while I < STL.Count do begin        // Must be while, we will alter count as we go
+        if IsSeText(Stl[i], '=') then
+            MakeHeading(True)
+        else if IsSeText(Stl[i], '-') then
+                MakeHeading(False)
+            else inc(i);
+    end;
+end;
 
 function  TImportNotes.PosMDTag(const St, Tag : string; const leading : boolean) : integer;
 var
@@ -138,7 +196,7 @@ begin
             Result :=  St.IndexOf(Tag, Stage);  // zero based !
             if Result = -1 then exit;
             if ((Result+length(tag)) >= Length(St)) or (St[Result+length(Tag)+1] in [' '..'/']) then    // at end of line or a space after
-                if St[Result] in  ['A'..'z', '0'..'9'] then                       // thats before tag
+                if St[Result] in  ['A'..'z', '0'..'9', '?', '.', ':', ';', ','] then                       // thats before tag
                     exit(Result+1);
             Stage := Result+1;
         end;
@@ -291,21 +349,26 @@ begin
         while ChangeTag(St, '`', '<monospace>', '</monospace>') do;
         while ChangeTag(St, '~~', '<strikeout>', '</strikeout>') do;
         while ChangeSmallFont(St) do;
-        DebugLn('[' + St + ']');
+        //DebugLn('[' + St + ']');
         Cont.Strings[Index] := St;
         inc(Index);
     end;
+    DoLineHeadings(Cont);
 end;
 
 
 // ToDo : Monospaced becomes code, wrap with backtick. MD:  `Mono or code`  Tomboy:  <monospace>Mono or code</monospace>
-// ToDo : Small font, gets converted to sub script in version in tomboy-ng. So, mark down is
+//      : Monospace may also be a line that starts with a space.
+//      : Small font, gets converted to sub script in version in tomboy-ng. So, mark down is
 //        wrap text in <sub>little text</sub>     and tomboy version is <size:small>little text</size:small>
+//      : Headings, a line, perhaps two or more of just == or ------ says previous line was heading.
+//        https://spec.commonmark.org/
 
 function TImportNotes.ImportFile(FullFileName: string): boolean;
 var
   Content : TStringList;
   GUID : TGUID;
+  NewFileName : string;
   Title : string;
   Index : integer = 0;
 begin
@@ -332,9 +395,13 @@ begin
             if copy(Title, 1, 2) = '# ' then delete(Title, 1, 2);
             if copy(Title, 1, 2) = '## ' then delete(Title, 1, 3);
             if copy(Title, 1, 2) = '### ' then delete(Title, 1, 4);
+
             ProcessPlain(Content, Title);
             CreateGUID(GUID);
-            Content.SaveToFile(AppendPathDelim(DestinationDir) + copy(GUIDToString(GUID), 2, 36) + '.note');
+            if KeepFileName then
+                NewFileName := ExtractFileNameOnly(FullFileName) + '.note'
+            else NewFileName := copy(GUIDToString(GUID), 2, 36) + '.note';
+            Content.SaveToFile(AppendPathDelim(DestinationDir) + NewFileName);
         finally
             freeandnil(Content);
         end;

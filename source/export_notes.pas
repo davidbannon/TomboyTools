@@ -35,6 +35,7 @@ type
 
     function ExportAll()               : boolean;
     function ExportFile(ID: string)    : boolean;   // Expects just ID, ie basename
+    function ExportHTML(ID: string): boolean;
                     {  Expects just ID, ie basename, if STL <> nil, does not do any file
                        i/o stuff, just returns with the list populated with md content. }
     function ExportMD(ID: string; STL: TStringList=nil): boolean;
@@ -42,55 +43,21 @@ type
     function NoteInNoteBook(const FileName: string): boolean;   // Expects just ID, ie basename
     function ExportNoteBook() : boolean;
 
-			                      { We must ensure that all markup tags are in the string (ie paragraph) that
-			                      they apply to.  Its common to see the xml file with, eg, a </bold> at the
-			                      start of a line, it actually closes a <bold> in previous line.  And a <bold>
-			                      can be found at the end of a line and it applies to the following line, maybe
-			                      even after several blank lines.  This will mess with md encoding.
-			                      Also need to reposition any 'off' markup tags hard up against text to the left
-			                      So, [texttext</bold> moretext] is OK, [texttext </bold>moretext] is not.     }
-	procedure NormaliseList(STL: TStringList);
-	function OffTagAtStart(St: string): integer;
-    function MoveTagRight(var St: string): boolean;
-                                // Returns the length of any 'on' tags at end of string, they will need to be moved. 0 indicates none found.
-	function OnTagAtEnd(St: string): integer;
-	function RemoveNextTag(var St: String; out Tag: string): integer;
-	procedure MoveTagDown(const StL: TStringList; const StIndex, TagSize: integer);
-	procedure MoveTagUp(const StL: TStringList; const StIndex: integer; var TagSize: integer);
-
-
-                                    { Looks for lines that with <size:large><bold> or <size:huge><bold> and
-                                      end with </bold></size:huge> or </bold></size:large>, makes them headings }
-	procedure ProcessHeadings(StL: TStringList);
-
-                                    { Here we add general markup tags excluding headers.
-                                      tomboy-ng will always present 'on' tags in this order -
-                                      size:small ~, highlight, ==, italics, * bold, **.  Tags cannot cross so 'off' is reverse
-                                      Seems Git md works with strikeout = '~~' or '~', other need '~~'
-                                      Git markdown does not do highlight  }
-	procedure ProcessMarkUp(StL: TStringList);
-	function RemoveTags(var St: string; out Tag: string): boolean;
-
-			                        { Takes an ID, reads that note returns title. Munge
-			                          will turn title into something useful as a base file name. }
-    function TitleFromID(ID: string; Munge: boolean; out LenTitle: integer): string;
-    function IDfromTitle(Title : string) : string;
-    function MoveTagLeft(var St: string): boolean;
-
-
   public
     FileNameIsTitle : boolean;      // Else its the existing note base file name, the ID
     NoteTitle : string;             // If not empty we are exporting just this note.
-    // AllNotes  : boolean;            // if true, we do all notes in indicated directory.
     NoteDir   : string;             // Dir containg the note or notes to export
     DestDir   : string;             // where to save notes to.
     NoteFileName : string;          // Note Filename without path
     Notebook  : string;             // Name of a notebook who's members we'll convert.
     OutFormat : string;             // Either 'md' or 'text', maybe add more later.
+    FollowLinks : boolean;
     ErrorMessage : string;          // Empty unless something bad happened.
     NotesProcessed : integer;       // How many things have we done something to ?
-                        { Gets passed an ID and created, empty stringlist. Will load indicated
-                          file as md. Observes only NoteDir
+                            // Public : Exports just the file passed, can call repeatedly
+    function ExportOneFile(FFN: string): boolean;
+                        { Public : Gets passed an ID and created, empty stringlist.
+                          Will load indicate file as md. Observes only NoteDir
                           This is for the use of NextCloud Exporter and maybe only temporary. }
     function GetMDcontent(ID : string; STL : TstringList) : boolean;
     function Execute() : boolean;   // you know all you need, go do it.
@@ -102,7 +69,7 @@ implementation
 
 { UTB2md }
 
-uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, commonmark, TB_utils;
+uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, commonmark, TB_utils, tt_utils, exporthtml;
 
 
 function TExportNote.ExportAll(): boolean;
@@ -160,6 +127,7 @@ begin
     result := true;
 end;
 
+(*
 function TExportNote.IDfromTitle(Title: string): string;
 var
     Info : TSearchRec;
@@ -206,9 +174,15 @@ begin
 
                 inc(Index);
         end;
-        Result := copy(Result, 1, 32);
+        Result := copy(Result, 1, 42);      // Because 42 is the meaning of life
 	end;
     LenTitle := length(Result);
+end;
+*)
+
+function TExportNote.ExportOneFile(FFN : string) : boolean;
+begin
+    result := ExportFile(ExtractFileNameOnly(FFN));
 end;
 
 function TExportNote.ExportFile(ID: string): boolean;
@@ -216,6 +190,7 @@ begin
     case OutFormat of
         'md', 'mark down', 'markdown', 'po file' : result := ExportMd(ID);
         'text', 'plain text', 'txt' : result := ExportText(ID);
+        'html' : result := ExportHTML(ID);
     else  begin
         ErrorMessage := 'ERROR : unidentified outformat requested ' + OutFormat;
         Debugln(ErrorMessage);
@@ -226,7 +201,7 @@ begin
     Result := True;
 end;
 
-
+(*
 function TExportNote.OnTagAtEnd(St : string) : integer;
 var
     I, L : integer;
@@ -263,9 +238,9 @@ begin
 		end;
 	end;
     result := i;
-end;
+end;                            *)
 
-
+(*
         // Deals with 'on' tags that need to be moved down to the paras that they apply to
 procedure TExportNote.MoveTagDown(const StL : TStringList; const StIndex, TagSize : integer);
 var
@@ -328,189 +303,8 @@ begin
     delete(St, Index, 1);
     insert(' ', St, St.IndexOf('>', Index)+2);          // 2 ? IndexOf rets a zero based and we want to go one past
     Result := true;
-end;
+end;              *)
 
-
-
-// =================== Remove This ====================
-procedure TExportNote.NormaliseList(STL : TStringList);
-var
-    TagSize, StIndex : integer;
-    TempSt : string;
-begin
-    StIndex := 0;
-    while StIndex < StL.Count do begin
-        repeat
-            TagSize := OnTagAtEnd(StL.Strings[StIndex]);
-            if TagSize > 0 then MoveTagDown(StL, StIndex, TagSize);
-		until TagSize < 1;          // WARNING, that includes error code, -1
-        TempSt := StL.Strings[StIndex];
-        while MoveTagLeft(TempSt) do;
-        while MoveTagRight(TempSt) do;
-        if TempSt <> StL.Strings[StIndex] then begin
-            StL.Insert(StIndex, TempSt);
-            StL.Delete(StIndex + 1);
-        end;
-        inc(StIndex);
-	end;
-    StIndex := StL.Count -1;           // start at bottom and work up
-    while StIndex > 0 do begin      // we don't care about the first line.
-        repeat
-            TagSize := OffTagAtStart(StL.strings[StIndex]);
-            if TagSize > 0 then MoveTagUp(StL, StIndex, TagSize);
-		until TagSize < 1;
-        dec(StIndex);
-	end;
-
-end;
-
-// ======================== REMOVE THIS ================================
-
-// This version uses the CommonMark model of noting heading with ---- ===== on line underneath
-procedure TExportNote.ProcessHeadings(StL : TStringList);
-var
-    i : integer = 1;    // Skip first two lines because they are title and the ==== markup.
-    PosI, L : integer;
-    AddedHeading : Boolean = false;
-begin
-    // We arrive here with a clean title in first st, lets mark it up as really big.
-    StL.Insert(1, '===========');
-    repeat
-        inc(i);
-        if not AddedHeading then begin
-            StL.Insert(i, '');
-            inc(i);
-		end;
-        AddedHeading := False;
-		if (StL.Strings[i] = '') or (StL.strings[i][1] <> '<') then continue;
-		if copy(Stl.Strings[i], 1, length('<size:large>')) = '<size:large>' then begin
-            PosI := pos('</size:large>', Stl.Strings[i]);
-            if PosI = 0 then continue;
-            L := length(Stl.Strings[i]);
-            if PosI -1 + length('</size:large>') = L then begin
-                StL.insert(i, copy(Stl.Strings[i], length('<size:large>')+1,
-                        L - length('<size:large></size:large>')));
-                StL.Delete(i+1);
-                inc(i);
-                StL.Insert(i, '--------');
-                AddedHeading := True;
-			end;
-		end;
-        if copy(Stl.Strings[i], 1, length('<size:huge>')) = '<size:huge>' then begin
-            PosI := pos('</size:huge>', Stl.Strings[i]);
-            if PosI = 0 then continue;
-            L := length(Stl.Strings[i]);
-            if PosI -1 + length('</size:huge>') = L then begin
-                StL.insert(i, copy(Stl.Strings[i], length('<size:huge>')+1,
-                        L - length('<size:huge></size:huge>')));
-                StL.Delete(i+1);
-                inc(i);
-                StL.Insert(i, '========');
-                AddedHeading := True;
-			end;
-		end;
-	until I >= StL.Count-1;
-end;
-
-
-
-function TExportNote.RemoveNextTag(var St : String; out Tag : string) : integer;
-var
-    TStart, TEnd, StartAt : integer;
-begin
-    StartAt := 0;
-    {writeln('==== Working on : [' + St + ']');}
-    repeat
-        Tag := '';
-        TStart := St.IndexOf('<', StartAt) + 1;
-        TEnd   := St.IndexOf('>', TStart) +1;
-        if (TStart > 0) and (TEnd > 0) and (TEnd > TStart) then begin
-            Tag := copy(St, TStart, TEnd - TStart +1);
-            {writeln('Tag = [' + Tag + ']');}
-            if (Tag = '<sub>') or (Tag = '</sub>') or
-                    (Tag = '</html>') or (Tag = '<html>') then begin       // they are MD tags, may be more .....
-                StartAt := TEnd +1;
-                {writeln('RNT Tag=' + Tag + ' St=[' + St + '] and StartAt=' + inttostr(StartAt));
-                writeln('Next IndexOf < is ' + inttostr(St.IndexOf('<', StartAt) + 1));
-                writeln('Next IndexOf > is ' + inttostr(St.IndexOf('>', StartAt) + 1));}
-                continue;
-            end;
-            {writeln('Removing Tag [' + Tag + ']');}
-            delete(St, TStart, TEnd - TStart +1);
-            exit(TStart);
-	    end
-	    else begin { writeln('Exit TStart=' + inttostr(TSTart) + ' TEnd=' + inttostr(TEnd));} exit(0); end;
-    until false;
-end;
-
-
-
-
-// ToDo : clarify highlight, can we, or can we not display highlight ??  It looks like git flavoured MD does not !
-
-// ======================== REMOVE THIS ==========================
-
-procedure TExportNote.ProcessMarkUp(StL : TStringList);
-var
-    BoldOn : boolean = false;
-    ItalicOn : boolean = false;
-    MonoOn : boolean = false;
-    //highlightOn : boolean = false;
-    SmallOn : boolean = false;
-    StrikeOutOn : boolean = false;
-    StIndex, ChIndex : integer;
-    Tag, TempSt, NewTag : string;
-begin
-    StIndex := -1;
-    ChIndex := 1;
-    while StIndex < StL.Count -1 do begin
-        inc(StIndex);
-        if (length(StL.Strings[StIndex]) < 2) then continue;     // no room for a tag in there.
-        {writeln('========== Looking at ' + StL.Strings[StIndex]);}
-        TempSt := '';
-        if ItalicOn then TempSt := TempSt + '*';
-        if BoldOn then TempSt := TempSt + '**';
-        if StrikeoutOn then TempSt := TempSt + '~~';
-        if MonoOn then TempSt := TempSt + '`';
-        if SmallOn then TempSt := TempSt + '<html><sub>';
-
-        TempSt := TempSt + StL.Strings[StIndex];
-        TempSt := TempSt.Replace('<bold></bold>', '', [rfReplaceAll]);
-        TempSt := TempSt.Replace('</bold></italic><bold>', '</bold></italic> <bold>', [rfReplaceAll]);
-        // ToDo : replace above line with something generic that puts a space between a string of 'off's and a string of 'on's
-        TempSt := TempSt.Replace('<list><list-item dir="ltr">', '* ');
-        // ToDo : when we have one bullet point after another, remove one blank line between
-        {writeln('==== First Cut ' + TempSt);}
-        repeat
-            ChIndex := RemoveNextTag(TempSt, Tag);
-            case Tag of
-                '<bold>' :        begin NewTag := '**';     BoldOn :=      True;  end;
-                '</bold>' :       begin NewTag := '**';     BoldOn :=      False; end;
-                '<italic>' :      begin NewTag := '*';      ItalicOn :=    True;  end;
-                '</italic>' :     begin NewTag := '*';      ItalicOn :=    False; end;
-                '<monospace>' :   begin NewTag := '`';      MonoOn :=      True;  end;
-				'</monospace>' :  begin NewTag := '`';      MonoOn :=      False; end;
-                '<size:small>' :  begin NewTag := '<html><sub>' ;       SmallOn :=     True;  end;
-                '</size:small>' : begin NewTag := '</sub></html>';      SmallOn :=     False; end;
-                '<strikeout>'  :  begin NewTag := '~~';     StrikeoutOn := True;  end;               // Does strikeout belong here ??
-                '</strikeout>'  : begin NewTag := '~~';     StrikeoutOn := False; End;               // ''
-			else
-                NewTag := '';
-            end;
-            if not NewTag.IsEmpty then begin
-                TempSt := TempSt.Insert(ChIndex-1, NewTag);
-                {writeln('Old Tag was ' + Tag + '  NewTag is ' + NewTag); }
-			end;
-		until ChIndex < 1;
-        if BoldOn then TempSt := TempSt + '**';
-        if ItalicOn then TempSt := TempSt + '*';
-        if StrikeoutOn then TempSt := TempSt + '~~';
-        if MonoOn then TempSt := TempSt + '`';
-        if SmallOn then TempSt := TempSt + '</sub></html>';
-        StL.Insert(StIndex, TempSt);
-        StL.Delete(StIndex + 1);
-	end;
-end;
 
 function TExportNote.GetMDcontent(ID: string; STL: TstringList): boolean;
 begin
@@ -524,7 +318,7 @@ end;
 function TExportNote.ExportMD(ID : string; STL : TStringList = nil): boolean;
 var
     StList : TStringList;
-    LTitle : integer;
+//    LTitle : integer;
 //    Index : integer;
     OutFileName : string;
     CM : TExportCommon;
@@ -546,37 +340,17 @@ begin
         CM.Free;
 	end;
 
-
-(*
-    try
-        StList.LoadFromFile(NoteDir + ID + '.note');
-        Index := FindInStringList(StList, '<title>');       // include < and > in search term so sure its metadate
-        if Index > -1 then
-            while Index > -1 do begin
-                StList.Delete(0);
-                dec(Index);
-			end;
-        // OK, now first line contains the title but some lines may have tags wrong side of \n, so Normalise
-        NormaliseList(StList);
-        StList.Delete(0);
-        StList.Insert(0, TitleFromID(ID, False, LTitle));
-        Index := FindInStringList(StList, '</note-content>');       // but G-Note does not bother with nice newlines ????
-        while Index < StList.Count do StList.Delete(Index);
-
-        ProcessHeadings(StList);                                    // Makes Title big too !
-// XX        ProcessMarkUp(StList);
-*)
      try
         if FileNameIsTitle then
-            OutFileName := DestDir + TitleFromID(ID, True, LTitle)
+            // OutFileName := DestDir + TitleFromID(ID, True, LTitle)
+            OutFileName := DestDir + GetTitleFromFFN(NoteDir + ID + '.note', True)   //    TitleFromID(ID, True, LTitle)
         else OutFileName := DestDir + ID;
 
         if (OutFormat = 'po file') then
             OutFileName := OutFileName + '.po'
         else
             OutFileName := OutFileName + '.md';
-        if STL <> nil then exit(True) {else
-            StList.LineBreak := LineEnding + LineEnding};                // Hmm, do we need this ???
+        if STL <> nil then exit(True);
 
         if FileExistsUTF8(OutFileName) then
             DeleteFileUTF8(OutFileName);
@@ -598,6 +372,30 @@ begin
 
 end;
 
+
+function TExportNote.ExportHTML(ID : string): boolean;
+var
+    HTML : TExportHTML;
+begin
+    if not FileExists(NoteDir + ID + '.note') then exit(False);
+    //debugln('export ' + NoteDir + ID + '.note to ' + DestDir + TitleFromID(ID, True, LTitle) + '.md');
+    result := true;
+{    if FileNameIsTitle then
+        OutFileName := DestDir + TitleFromID(ID, True, LTitle)
+    else OutFileName := DestDir + ID;
+    OutFileName := OutFileName + '.html'; }
+    HTML := TExportHTML.Create();
+    HTML.NotesDir:= AppendPathDelim(NoteDir);
+    HTML.OutDir := AppendPathDelim(DestDir);
+    HTML.FollowLinks := FollowLinks;
+    try
+        exit(HTML.ExportFile(NoteDir + ID + '.note'));     // does that make sense ?
+    finally
+        HTML.Free;
+    end;
+end;
+
+(*
 function TExportNote.RemoveTags(var St : string; out Tag : string) : boolean;
 var
     TStart, TEnd : integer;
@@ -611,15 +409,16 @@ begin
         delete(St, TStart, TEnd - TStart +1)
 	end
 	else Result := False;
-end;
+end;       *)
 
-function TExportNote.ExportText(ID : string): boolean;
+function TExportNote.ExportText(ID : string): boolean;      // ToDo : quality of exported text is horrible, needs newlines added.
 var
     Doc : TXMLDocument;
     Node : TDOMNode;
     Content : string;
     OutFile: TextFile;
-    LTitle : integer;
+    Title : string;
+//    LTitle : integer;
 begin
     if not FileExists(NoteDir + ID + '.note') then exit(False);
     ReadXMLFile(Doc, NoteDir + ID + '.note');
@@ -632,8 +431,10 @@ begin
     finally
         Doc.free;
     end;
-    AssignFile(OutFile, DestDir + TitleFromID(ID, True, LTitle) + '.txt');      // ToDo : this does not respect not FileNameIsTitle.
-    insert(LineEnding+LineEnding, Content, LTitle+1);
+    Title := GetTitleFromFFN(NoteDir + ID + '.note', True);
+    //AssignFile(OutFile, DestDir + TitleFromID(ID, True, LTitle) + '.txt');      // ToDo : this does not respect not FileNameIsTitle.
+    AssignFile(OutFile, DestDir + Title + '.txt');
+    insert(LineEnding+LineEnding, Content, length(Title)+1);
     try
         try
             Rewrite(OutFile);
@@ -649,22 +450,34 @@ begin
     end;
 end;
 
+
+// Call this if we have an Notebook already poked into class. Or want to export All
+// It used to support a Title as well but no more !
+
 function TExportNote.Execute(): boolean;
-var
-    ID : string;
+{var
+    ID : string; }
 begin
     Result := False;
     NotesProcessed := 0;
-    if (Notebook = '') and (self.NoteTitle = '') then
-        exit(ExportAll());
+{    if (Notebook = '') and (self.NoteTitle = '') then
+        exit(ExportAll());      }
     if NoteTitle <> '' then begin           // we have a title, just do this note.
+        SayDebugSafe('*** ERROR *** TEXPORTNOTE.EXECUTE called with NOTETITLE set.');
+        exit(False);
+    end;
+    if (Notebook = '') then
+        Result := ExportAll()
+    else Result := ExportNoteBook();
+{
+
         ID := IDfromTitle(NoteTitle);
         if ID = '' then
             debugln('ERROR : Unable to find note with Title = ' + NoteTitle)
         else
             Result := ExportFile(ID);
     end else                                // we must have a Notebook
-        result := ExportNoteBook();
+        result := ExportNoteBook();             }
 end;
 
 
@@ -675,8 +488,7 @@ end;
 
 destructor TExportNote.Destroy;
 begin
-
-		inherited Destroy;
+	inherited Destroy;
 end;
 
 end.

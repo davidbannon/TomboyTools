@@ -17,7 +17,7 @@ uses
         {$ENDIF}{$ENDIF}
         Interfaces, // this includes the LCL widgetset
         Forms, main, cmdline, export_notes, import_notes,
-		note2po, notenormal
+		note2po, notenormal, tt_utils, exporthtml
         { you can add units after this };
 
 {$R *.res}

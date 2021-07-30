@@ -21,27 +21,26 @@ type
 		{ TFormMain }
 
         TFormMain = class(TForm)
+            ButtonImSelectAll: TButton;
+            ButtonImUnselectAll: TButton;
+            ButtonSelectAll: TButton;
+            ButtonUnselectAll: TButton;
+            CheckFollowLinks: TCheckBox;
+            CheckRetainFileName: TCheckBox;
 				CheckListBox1: TCheckListBox;
                 CheckListImportFiles: TCheckListBox;
-                ComboImportDest: TComboBox;
-                ComboSourceFormat: TComboBox;
-				ComboExportMode: TComboBox;
-				ComboExport: TComboBox;
-				ComboSource: TComboBox;
                 GroupBox1: TGroupBox;
                 GroupBox2: TGroupBox;
-				Label1: TLabel;
-				Label2: TLabel;
+                GroupBox3: TGroupBox;
+                GroupBox4: TGroupBox;
+                GroupBox5: TGroupBox;
 				Label3: TLabel;
-				Label4: TLabel;
 				Label5: TLabel;
 				Label6: TLabel;
-                Label7: TLabel;
                 Label8: TLabel;
                 LabelImportDestination: TLabel;
                 LabelErrorMessage: TLabel;
                 LabelImportSource: TLabel;
-                LabelVersion: TLabel;
 				LabelSourcePrompt: TLabel;
 				LabelSource: TLabel;
 				LabelDestinationPrompt: TLabel;
@@ -49,54 +48,75 @@ type
 				PageControl1: TPageControl;
                 PanelLower: TPanel;
 				PanelTop: TPanel;
+                RadioImMarkDown: TRadioButton;
+                RadioImText: TRadioButton;
+                RadioExMarkDown: TRadioButton;
+                RadioExText: TRadioButton;
+                RadioExHtml: TRadioButton;
+                RadioExNotes: TRadioButton;
+                RadioExNotebook: TRadioButton;
+                RadioExDir: TRadioButton;
                 RadioFileNameTitle: TRadioButton;
                 RadioFileNameID: TRadioButton;
                 RadioTitleFirstLine: TRadioButton;
                 RadioTitleFilename: TRadioButton;
 				SelectDirectoryDialog1: TSelectDirectoryDialog;
+                SpeedImportDestination: TSpeedButton;
                 SpeedExit: TSpeedButton;
                 SpeedImportSourceDir: TSpeedButton;
                 SpeedProceed: TSpeedButton;
-				SpeedSetSource: TSpeedButton;
 				SpeedSetDestination: TSpeedButton;
 				StatusBar1: TStatusBar;
 				TabExport: TTabSheet;
 				TabImport: TTabSheet;
+                procedure ButtonImSelectAllClick(Sender: TObject);
+                procedure ButtonImUnselectAllClick(Sender: TObject);
+                procedure ButtonSelectAllClick(Sender: TObject);
+                procedure ButtonUnselectAllClick(Sender: TObject);
                 procedure CheckListBox1Click(Sender: TObject);
                 procedure CheckListImportFilesClick(Sender: TObject);
                 procedure CheckListImportFilesClickCheck(Sender: TObject);
-                procedure ComboImportDestChange(Sender: TObject);
-                procedure ComboExportChange(Sender: TObject);
-				procedure ComboExportModeChange(Sender: TObject);
-                procedure ComboSourceChange(Sender: TObject);
-                procedure ComboSourceFormatChange(Sender: TObject);
-
                 procedure FormCreate(Sender: TObject);
+                procedure FormDestroy(Sender: TObject);
                 procedure FormShow(Sender: TObject);
+                procedure RadioExDirChange(Sender: TObject);
+                procedure RadioExMarkDownChange(Sender: TObject);
+                procedure RadioExNotebookChange(Sender: TObject);
+                procedure RadioExNotesChange(Sender: TObject);
+                procedure RadioImMarkDownChange(Sender: TObject);
+                procedure RadioImTextChange(Sender: TObject);
+                procedure SpeedImportDestinationClick(Sender: TObject);
 				procedure SpeedExitClick(Sender: TObject);
 
 				procedure SpeedProceedClick(Sender: TObject);
     			procedure SpeedSetDestinationClick(Sender: TObject);
-				procedure SpeedSetSourceClick(Sender: TObject);
+				//procedure SpeedSetSourceClick(Sender: TObject);
                 procedure SpeedImportSourceDirClick(Sender: TObject);
                 procedure TabExportShow(Sender: TObject);
                 procedure TabImportShow(Sender: TObject);
         private
+            Ready : boolean;    // To prevent events that happen during setup being acted on
+                    // lists we will use to store found note names. They are regional
+                    // so the CheckListBox can store ID data in its Object
+            RSLFiles, RegImFiles : TStringList;
             procedure DisplayImportPossibilities();
+            function GetExportNotes(): integer;
 
             procedure ImportProceed();
-            procedure ImportReadyToGo();
             function NumberChecked(CLB: TCheckListBox): integer;
-            procedure ProcessDirectory;
+
             procedure ProcessNotebooks;
-				procedure SetUpSource(Mode: integer);
+                                // Called to iterate over the notes listed in the CheckListBox, exporting
+                                // all that are checked.
+            procedure ProcessNotes;
+				//procedure SetUpSource(Mode: integer);
 				procedure SetUpNoteBook();
 				function GetNoteBooks(): integer;
-				function ExportReadyToGo(): boolean;
-				function SetExportSource(SDir: string): boolean;
-                function TestImportDestination(UserSelected: boolean): boolean;
+				//function ExportReadyToGo(): boolean;
+				//function SetExportSource(SDir: string): boolean;
+                function TestImportDestination(): boolean;
         public
-
+            DefaultNotesDir : string;
         end;
 
 
@@ -105,17 +125,17 @@ var
 
 implementation
 
-uses cmdline, FileUtil, LazFileUtils, export_notes, import_notes, tb_utils;
+uses cmdline, FileUtil, LazFileUtils, export_notes, import_notes, tb_utils, tt_utils;
 
-const
+//const
 
-    cbNG = 0;            // The selected index ComboSource, must agree with order of strings in Combo, set in ObjectInspector
-    cbTB = 1;
-    cbManual = 2;
-    cbNG_ALT = 3;       // Thats my tomboy-ng-alt, here only for testing, don't ship with this one in combos.
+    //cbNG = 0;            // The selected index ComboSource, must agree with order of strings in Combo, set in ObjectInspector
+    //cbTB = 1;
+    //cbManual = 2;
+    //cbNG_ALT = 3;       // Thats my tomboy-ng-alt, here only for testing, don't ship with this one in combos.
 
-    cbDirectory = 0;    // Export Mode combobox, must agree with order of strings in Combo, set in ObjectInspector
-    cbBook = 1;
+    //cbDirectory = 0;    // Export Mode combobox, must agree with order of strings in Combo, set in ObjectInspector
+    //cbBook = 1;
 
 
 {$R *.lfm}
@@ -123,29 +143,56 @@ const
 { TFormMain }
 
 
-procedure TFormMain.SetUpSource(Mode : integer);
+// ========================= S H A R E D    M E T H O D S  ====================
+
+
+procedure TFormMain.FormCreate(Sender: TObject);
 begin
-    ComboSource.Enabled := true;
-    case Mode of
-        cbNG : if SetExportSource(GetDefaultNoteDir()) then
-                        ComboSource.ItemIndex := cbNG
-                    else if SetExportSource(GetDefaultNoteDir(True)) then
-                        ComboSource.ItemIndex := cbTB
-                        else ComboSource.ItemIndex := cbManual;
-        cbTB :  if SetExportSource(GetDefaultNoteDir(True)) then
-                        ComboSource.ItemIndex := cbTB
-                        else ComboSource.ItemIndex := cbManual;
-        cbManual : ComboSource.ItemIndex := cbManual;               // which it is anyway
-	end;
-
-    SpeedSetSource.Enabled := not (comboSource.ItemIndex = cbNG) or (comboSource.ItemIndex = cbTB);
-
-    //LabelSource.caption := '';
-    CheckListBox1.enabled := false;
-    if ComboExportMode.ItemIndex = cbBook then
-           SetUpNoteBook();
-    ExportReadyToGo();
+    Ready := False;
+    LabelErrorMessage.Caption := '';
+    RSLFiles := nil;
+    RegImFiles := Nil;
+    DefaultNotesDir := GetDefaultNoteDir();                           // Thats tomboy-ng
+    PageControl1.TabIndex := 0;
+    // Some initial defaults
+    {$ifdef WINDOWS}
+    LabelDestination.Caption := GetEnvironmentVariable('HOMEPATH');   // DoDo : Test This !!!!!
+    {$else}
+    LabelDestination.Caption := GetEnvironmentVariable('HOME');
+    {$endif}
+    LabelImportSource.Caption := LabelDestination.Caption;
+    LabelSource.Caption := DefaultNotesDir;
+    LabelImportDestination.Caption := DefaultNotesDir;
+    RadioExNotes.Checked := True;
+    // Maybe user put something on command line ? Override.
+    if Application.HasOption('s', 'source') then begin
+        LabelImportSource.Caption := Application.GetOptionValue('s', 'source');
+        LabelSource.Caption := Application.GetOptionValue('s', 'source');
+        RadioExDir.Checked := True;
+        GroupBox3.Enabled := False;
+        SpeedImportSourceDir.Enabled := False;
+    end;
+    if Application.HasOption('d', 'destination') then begin
+        LabelDestination.Caption := Application.GetOptionValue('d', 'destination');
+        LabelImportDestination.Caption := Application.GetOptionValue('d', 'destination');
+        SpeedSetDestination.Enabled := False;
+        SpeedImportDestination.Enabled := False;
+    end;
+    GetExportNotes();
+    DisplayImportPossibilities();
 end;
+
+procedure TFormMain.FormDestroy(Sender: TObject);
+begin
+    if assigned(RSLFiles) then RSLFiles.Free;
+    if assigned(RegImFiles) then RegImFiles.free;
+end;
+
+procedure TFormMain.SpeedExitClick(Sender: TObject);
+begin
+    close;
+end;
+
 
 procedure TFormMain.SetUpNoteBook() ;
 begin
@@ -154,48 +201,84 @@ begin
         showmessage('That dir has no notes in notebooks');
 end;
 
-function TFormMain.ExportReadyToGo() : boolean;
-begin
-    Result :=   (LabelSource.Caption <> '') and
-                (LabelDestination.Caption <> '') and
-                ( (ComboExportMode.ItemIndex <> cbBook) or (NumberChecked(CheckListBox1) > 0))
-                ;
-
-    SpeedProceed.Enabled := Result;
-end;
-
-
 procedure TFormMain.FormShow(Sender: TObject);
 begin
-    //CheckListBox1.AllowGrayed:=true;
+    Ready := True;
+end;
 
+
+// ==================  E X P O R T I N G    M E T H O D S ======================
+
+procedure TFormMain.RadioExDirChange(Sender: TObject);
+begin
+    if not Ready then exit;
+    if RadioExDir.Checked then begin;
+        if SelectDirectoryDialog1.Execute then begin
+            LabelSource.Caption := TrimFilename(SelectDirectoryDialog1.FileName + PathDelim);
+            if GetExportNotes() = 0 then
+                showmessage('That dir has no notes');
+	    end;
+    end;
+end;
+                        // NOTE : called for change to all three radio buttons
+procedure TFormMain.RadioExMarkDownChange(Sender: TObject);
+begin
+    CheckFollowLinks.enabled := RadioExHTML.Checked;
+    GroupBox2.Enabled := TRadioButton(sender).Name <> 'RadioExHtml';
+end;
+
+procedure TFormMain.RadioExNotebookChange(Sender: TObject);
+begin
+    if not Ready then exit;
+    LabelSource.Caption := DefaultNotesDir;
+    if RadioExNotebook.Checked then
+        if GetNoteBooks() = 0 then
+            showmessage('That dir has no notes in notebooks');
+end;
+
+procedure TFormMain.RadioExNotesChange(Sender: TObject);
+begin
+    if not Ready then exit;
+    LabelSource.Caption := DefaultNotesDir;
+    if RadioExNotes.Checked then
+        if GetExportNotes() =0 then
+            showmessage('That dir has no notes');
 end;
 
 
 
-
-
-procedure TFormMain.ProcessDirectory;
+procedure TFormMain.ProcessNotes;
 var
     Exporter : TExportNote;
+    Index : integer;
 begin
     Exporter := TExportNote.Create;
     try
-        Exporter.DestDir := LabelDestination.Caption;
-        Exporter.NoteDir := LabelSource.caption;
-        Exporter.OutFormat := ComboExport.Text;
+        Exporter.DestDir := appendPathDelim(LabelDestination.Caption);
+        Exporter.NoteDir := appendPathDelim(LabelSource.caption);
         Exporter.FileNameIsTitle := RadioFileNameTitle.checked;
-        //Exporter.AllNotes := True;
-        Exporter.Execute();
-        if Exporter.ErrorMessage <> '' then begin
-            showmessage(Exporter.ErrorMessage);
-            LabelErrorMessage.Caption := Exporter.ErrorMessage;
+        Exporter.FollowLinks := CheckFollowLinks.Checked;
+        Exporter.OutFormat := '';
+        if RadioExMarkDown.Checked then Exporter.OutFormat := 'md';
+        if RadioExText.Checked then Exporter.OutFormat := 'text';
+        if RadioExHTML.Checked then Exporter.OutFormat := 'html';
+        if  Exporter.OutFormat = '' then begin
+            showmessage('Error, out format not set');
+            exit;
         end;
-        StatusBar1.SimpleText:= inttostr(Exporter.NotesProcessed) + ' notes processed.';
-	finally
+        Index := CheckListBox1.Count;
+        while Index > 0 do begin
+            dec(Index);
+            //debugln('Exporting ' + CheckListBox1.Items[Index]);
+            if CheckListBox1.Checked[Index] then
+                Exporter.ExportOneFile(String(CheckListBox1.Items.Objects[Index]));
+        end;
+    finally
         Exporter.Free;
+
 	end;
 end;
+
 
 procedure TFormMain.ProcessNotebooks;
 var
@@ -214,60 +297,72 @@ begin
     end;
     Exporter := TExportNote.Create;
     try
-        Exporter.DestDir := LabelDestination.Caption;
-        Exporter.NoteDir := LabelSource.caption;
-        Exporter.OutFormat := ComboExport.Text;
+        Exporter.DestDir := AppendPathDelim(LabelDestination.Caption);
+        Exporter.NoteDir := AppendPathDelim(LabelSource.caption);
+        Exporter.FollowLinks := False;
+        Exporter.OutFormat := '';
+        if RadioExMarkDown.Checked then Exporter.OutFormat := 'md';
+        if RadioExText.Checked then Exporter.OutFormat := 'text';
+        if  Exporter.OutFormat = '' then begin
+            showmessage('Error, out format not set');
+            exit;
+        end;
         Exporter.FileNameIsTitle := RadioFileNameTitle.Checked;
-            DebugLn('checked notebooks');
-            Index := 0;
-            while Index < CheckListBox1.Items.Count do begin
-                if CheckListBox1.Checked[Index] then begin
-                    debugln('Checked [' + CheckListBox1.Items[Index] + ']');
-                    Exporter.Notebook := CheckListBox1.Items[Index];
-                    Exporter.Execute();
-                    if Exporter.ErrorMessage <> '' then begin
-                        debugln(Exporter.ErrorMessage);
-                        showmessage(Exporter.ErrorMessage);
-                        LabelErrorMessage.Caption := Exporter.ErrorMessage;
-                    end else begin
-                        StatusBar1.SimpleText:=  CheckListBox1.items[Index] + ' '
-                                + inttostr(Exporter.NotesProcessed) + ' notes processed.';
-                        NotesProcessed := NotesProcessed + Exporter.NotesProcessed;
-                    end;
-                    Application.ProcessMessages;
+        DebugLn('checked notebooks');
+        Index := 0;
+        while Index < CheckListBox1.Items.Count do begin
+            if CheckListBox1.Checked[Index] then begin
+                //debugln('Checked [' + CheckListBox1.Items[Index] + ']');
+                Exporter.Notebook := CheckListBox1.Items[Index];
+                Exporter.Execute();
+                if Exporter.ErrorMessage <> '' then begin
+                    debugln(Exporter.ErrorMessage);
+                    showmessage(Exporter.ErrorMessage);
+                    LabelErrorMessage.Caption := Exporter.ErrorMessage;
+                end else begin
+                    StatusBar1.SimpleText:=  CheckListBox1.items[Index] + ' '
+                            + inttostr(Exporter.NotesProcessed) + ' notes processed.';
+                    NotesProcessed := NotesProcessed + Exporter.NotesProcessed;
                 end;
-                inc(Index);
+                Application.ProcessMessages;
             end;
-            StatusBar1.SimpleText:=  'Total of '
-                    + inttostr(NotesProcessed) + ' notes processed.';
+            inc(Index);
+        end;
+        StatusBar1.SimpleText:=  'Total of '
+                + inttostr(NotesProcessed) + ' notes processed.';
 	finally
         Exporter.Free;
 	end;
 end;
 
-
-{ Combo setup -  style = csDropDownList  }
-
-procedure TFormMain.ComboSourceChange(Sender: TObject);
-begin
-        SetUpSource(ComboSource.ItemIndex);
-        ExportReadyToGo();
-end;
-
-
-
-procedure TFormMain.ComboExportChange(Sender: TObject);
-begin
-    ExportReadyToGo();
-end;
-
 procedure TFormMain.CheckListBox1Click(Sender: TObject);
 begin
+    //debugln('Clicked '+ string(CheckListBox1.items.objects[CheckListBox1.ItemIndex]));
     CheckListBox1.ItemIndex := -1;
-    ExportReadyToGo();
+    //ExportReadyToGo();
 end;
 
+procedure TFormMain.ButtonSelectAllClick(Sender: TObject);
+var
+    Index : integer = 0;
+begin
+    Index := CheckListBox1.Count;
+    while Index > 0 do begin
+        dec(index);
+        CheckListBox1.Checked[Index] := True;
+    end;
+end;
 
+procedure TFormMain.ButtonUnselectAllClick(Sender: TObject);
+var
+    Index : integer = 0;
+begin
+    Index := CheckListBox1.Count;
+    while Index > 0 do begin
+        dec(index);
+        CheckListBox1.Checked[Index] := False;
+    end;
+end;
 
 procedure TFormMain.CheckListImportFilesClick(Sender: TObject);
 begin
@@ -275,33 +370,30 @@ begin
 end;
 
 
-
-procedure TFormMain.ComboExportModeChange(Sender: TObject);
-begin
-    case ComboExportMode.ItemIndex of
-        cbDirectory : SetUpSource(cbNG);
-        cbBook      : SetUpNoteBook();
-	end;
-    ExportReadyToGo();
-end;
-
-        // Tests indicated directory, sets LabelSouce and ret T if it finds notes there.
-function TFormMain.SetExportSource(SDir : string) : boolean;
+function TFormMain.GetExportNotes() : integer;
 var
-    SL : TStringList;
+    // SLFiles : TStringList;
+    St : string;
 begin
-    SL := nil;
-    Result := false;
-    if directoryExists(SDir) then begin
-	        SL := FindAllFiles(SDir, '*.note', false);
-	        if SL.Count > 0 then begin
-	            result := true;
-                LabelSource.caption := SDir;
-                StatusBar1.SimpleText:= inttostr(SL.Count) + ' notes found';
-		    end;
-     end;
-    if SL <> nil then SL.Free;
-    ExportReadyToGo();
+    Result := 0;
+    CheckListBox1.Clear;
+    if LabelSource.Caption = '' then exit(0);
+    // ToDo : if capion ends with .note do something else !
+    if directoryExists(LabelSource.Caption) then begin
+        if assigned(RSLFiles) then RSLFiles.Free;
+	    RSLFiles := FindAllFiles(LabelSource.Caption, '*.note', false);   // Note : stores FFN !
+        try
+            for St in RSLFiles do begin
+                CheckListBox1.AddItem(GetTitleFromFFN(St, False), Tobject(St));
+            end;
+            Result := checklistbox1.items.count;
+            StatusBar1.SimpleText:= inttostr(CheckListBox1.Count) + ' notes found';
+            if Result = 0 then StatusBar1.SimpleText:= 'No notes found';
+		finally
+          //SLFiles.free;
+          CheckListBox1.enabled := CheckListBox1.Count > 0;
+		end;
+    end else debugln('Not Found ' + LabelSource.Caption);
 end;
 
                             // Loads all the notebooks found in current source dir into the TListBox
@@ -340,19 +432,22 @@ begin
           SLFiles.free;
 		end;
 	end;
+    CheckListBox1.enabled := CheckListBox1.Count > 0;
     StatusBar1.SimpleText:= inttostr(CheckListBox1.Count) + ' notebooks found';
+    if CheckListBox1.Count = 0 then StatusBar1.SimpleText:= 'No notebooks found';
 end;
 
 procedure TFormMain.SpeedSetDestinationClick(Sender: TObject);
 begin
     if SelectDirectoryDialog1.Execute then
             LabelDestination.Caption := TrimFilename(SelectDirectoryDialog1.FileName + PathDelim);
-    if DirectoryIsWritable(LabelDestination.Caption) then
-        ExportReadyToGo()
-    else
+    if not DirectoryIsWritable(LabelDestination.Caption) then
+    //    ExportReadyToGo()
+    //else
         Showmessage('Cannot write to that dir' + #10 + LabelDestination.Caption);
 end;
 
+(*
 procedure TFormMain.SpeedSetSourceClick(Sender: TObject);
 begin
     if SelectDirectoryDialog1.Execute then begin
@@ -361,55 +456,19 @@ begin
             SetUpNoteBook();
 	end;
     ExportReadyToGo();
-end;
+end;    *)
 
 procedure TFormMain.TabExportShow(Sender: TObject);
 begin
     StatusBar1.SimpleText:= '';
     LabelErrorMessage.Caption := '';
-    SetUpSource(cbNG);   // will try NG first, then TB, then fall back to manual
-    ExportReadyToGo();
+    //SetUpSource(cbNG);   // will try NG first, then TB, then fall back to manual
+    //ExportReadyToGo();
 end;
 
 
 
-// -------------------------- S H A R E D -------------------------------------
 
-
-RESOURCESTRING
-rsTomboyngDefault = 'tomboy-ng default';
-rsTomboyDefault   = 'Tomboy Default';
-rsLetMeChoose     = 'Let Me Choose';
-rsDirOfNotes      = 'A Directory of Notes';
-rsNotesInNotebook = 'Notes in a Notebook';
-rsPlainText       = 'Plain Text';
-rsMarkDown        = 'Mark Down (git style)';
-
-
-
-
-procedure TFormMain.FormCreate(Sender: TObject);
-begin
-    PageControl1.TabIndex := 0;
-    LabelImportSource.Caption := '';
-    LabelImportDestination.Caption := '';
-    LabelErrorMessage.Caption := '';
-    LabelDestination.caption := '';
-    ComboExportMode.Items.add(rsDirOfNotes);
-    ComboExportMode.Items.add(rsNotesInNoteBook);
-    ComboImportDest.Items.add(rsTomboyngDefault);
-    ComboImportDest.Items.add(rsTomboyDefault);
-    ComboImportDest.Items.add(rsLetMeChoose);
-    ComboImportDest.ItemIndex := 0;
-    ComboSourceFormat.Items.Add(rsPlainText);
-    ComboSourceFormat.Items.Add(rsMarkDown);
-    ComboSourceFormat.ItemIndex:=1;
-end;
-
-procedure TFormMain.SpeedExitClick(Sender: TObject);
-begin
-    close;
-end;
 
 function TFormMain.NumberChecked(CLB : TCheckListBox) : integer;
 var
@@ -432,84 +491,31 @@ begin
 	              StatusBar1.SimpleText:= 'processing notes, please wait ....';
 	              LabelErrorMessage.Caption := '';
 	              Application.ProcessMessages;
-	              case comboExportMode.itemIndex of
+                  if RadioExNotebook.checked then ProcessNoteBooks
+                  else ProcessNotes;                        // Just process the ones in CheckListBox
+                  StatusBar1.SimpleText:= 'processed notes';
+	              {case comboExportMode.itemIndex of
 	                  cbDirectory : ProcessDirectory;
 	  		          cbBook      : ProcessNotebooks;
-	  	          end;
+	  	          end;   }
 	        end;
         1 : ImportProceed();
         //2 : DoNextCloud();             // not being used
 	end;
-    exit;
 
-    // trash below when ready .....
-
-    if PageControl1.ActivePage.TabIndex = 0 then begin      // Thats Export
-        StatusBar1.SimpleText:= 'processing notes, please wait ....';
-        LabelErrorMessage.Caption := '';
-        Application.ProcessMessages;
-        case comboExportMode.itemIndex of
-            cbDirectory : ProcessDirectory;
-		    cbBook      : ProcessNotebooks;
-	    end;
-    end else                                           // Unless we add more, that Import
-        ImportProceed();
 end;
 
 
 // -------------------------- I M P O R T ------------------------------------
 
 
-procedure TFormMain.ComboSourceFormatChange(Sender: TObject);
-begin
-    if  LabelImportSource.Caption <> '' then
-        DisplayImportPossibilities();
-    ImportReadyToGo();
-end;
 
 procedure TFormMain.CheckListImportFilesClickCheck(Sender: TObject);
 begin
-    ImportReadyToGo();
+    //ImportReadyToGo();
 end;
 
 
-function TFormMain.TestImportDestination(UserSelected : boolean) : boolean;
-begin
-    if ComboImportDest.Items[ComboImportDest.ItemIndex] = rsTomboyNGDefault then
-        LabelImportDestination.Caption := GetDefaultNoteDir()
-    else    if ComboImportDest.Items[ComboImportDest.ItemIndex] = rsTomboyDefault then
-                LabelImportDestination.Caption := GetDefaultNoteDir(True)
-            else begin
-                if SelectDirectoryDialog1.Execute then
-                    LabelImportDestination.Caption := TrimFilename(SelectDirectoryDialog1.FileName + PathDelim);
-            end;
-    if not DirectoryIsWritable(LabelImportDestination.Caption) then begin
-        if UserSelected then
-            Showmessage('Cannot write to that dir' + #10 + LabelImportDestination.Caption);
-        LabelImportDestination.Caption := '' ;
-        LabelImportDestination.Hint := '';
-    end;
-    if LabelImportDestination.Caption <> '' then begin          // We have a usable dir then.
-         LabelImportDestination.Hint := LabelImportDestination.Caption;
-         LabelImportDestination.ShowHint := True;
-    end;
-    ImportReadyToGo();
-    result := LabelImportDestination.Caption <> '';
-end;
-
-procedure TFormMain.ComboImportDestChange(Sender: TObject);
-begin
-    TestImportDestination(true);
-    exit();
-end;
-
-
-procedure TFormMain.ImportReadyToGo();
-begin
-    SpeedProceed.Enabled :=  ((NumberChecked(CheckListImportFiles) > 0)
-                                and (LabelImportSource.Caption <> '')
-                                and (LabelImportDestination.Caption <> ''));
-end;
 
 procedure TFormMain.ImportProceed();
 var
@@ -523,17 +529,15 @@ begin
             Import :=  TImportNotes.Create;
             while Index < CheckListImportFiles.Count do begin
                 if CheckListImportFiles.Checked[Index] then
-                    NameList.Add(CheckListImportFiles.Items[Index]);
+                    NameList.Add(string(CheckListImportFiles.Items.Objects[Index]));
                 inc(Index);
             end;
             Import.ImportNames := NameList;
             Import.DestinationDir := LabelImportDestination.Caption;
             Import.FirstLineIsTitle := RadioTitleFirstLine.Checked;
-            if ComboSourceFormat.Items[ComboSourceFormat.ItemIndex] = rsPlainText then
-                Import.Mode := 'plaintext'
-            else if ComboSourceFormat.Items[ComboSourceFormat.ItemIndex] = rsMarkDown then
-                Import.Mode := 'markdown';
-            StatusBar1.SimpleText:= inttostr(Import.Execute) + ' files imported';
+            if RadioImMarkDown.checked then Import.Mode := 'markdown';
+            if RadioImText.checked then Import.Mode := 'plaintext';
+            StatusBar1.SimpleText:= ' ' + inttostr(Import.Execute) + ' files imported';
             LabelErrorMessage.Caption := Import.ErrorMsg;
         finally
             freeandnil(Import);
@@ -544,36 +548,104 @@ end;
 
 procedure TFormMain.DisplayImportPossibilities();
 var
-    SrcFiles : TstringList;
+    St : string;
 begin
-        CheckListImportFiles.Clear;
-        if ComboSourceFormat.Items[ComboSourceFormat.ItemIndex] = rsPlainText then
-             SrcFiles := FindAllFiles(LabelImportSource.Caption, '*.txt;*.text', false);
-        if ComboSourceFormat.Items[ComboSourceFormat.ItemIndex] = rsMarkDown then
-             SrcFiles := FindAllFiles(LabelImportSource.Caption, '*.md', false);
-        CheckListImportFiles.items := SrcFiles;
-        freeandnil(SrcFiles);
-        ImportReadyToGo();
+    CheckListImportFiles.Clear;
+    if RadioImMarkDown.checked then begin
+        if assigned(RegImFiles) then RegImFiles.free;
+        RegImFiles := FindAllFiles(LabelImportSource.Caption, '*.md', false)     // Freed in Distroy
+    end else if RadioImText.checked then
+        RegImFiles := FindAllFiles(LabelImportSource.Caption, '*.txt;*.text', false);
+    for St in RegImFiles do
+                CheckListImportFiles.AddItem(ExtractFileName(St), Tobject(St));
+    StatusBar1.SimpleText:= ' ' + inttostr(CheckListImportFiles.Count) + ' files found';
+end;
+
+function TFormMain.TestImportDestination() : boolean;
+begin
+    Label3.ShowHint := False;
+    SpeedImportDestination.ShowHint := False;
+    LabelImportDestination.ShowHint := False;
+    if DirectoryIsWritable(LabelImportDestination.Caption) then begin
+        if DefaultNotesDir = LabelImportDestination.Caption then begin
+            LabelImportDestination.Hint := 'This is tomboy-ng Repository';
+            SpeedImportDestination.Hint := 'This is tomboy-ng Repository';
+            Label3.Hint := 'This is tomboy-ng Repository';
+            Label3.ShowHint := True;
+            SpeedImportDestination.ShowHint := True;
+            LabelImportDestination.ShowHint := True;
+        end;
+    end else begin
+        Showmessage('Cannot write to that dir' + #10 + LabelImportDestination.Caption);
+        LabelImportDestination.Caption := '' ;
+        LabelImportDestination.Hint := 'This MUST be set';
+        SpeedImportDestination.Hint := 'This MUST be set';
+        Label3.Hint := 'This MUST be set';
+        Label3.ShowHint := true;
+        SpeedImportDestination.ShowHint := true;
+        LabelImportDestination.ShowHint := true;
+    end;
+    result := LabelImportDestination.Caption <> '';
+end;
+
+procedure TFormMain.SpeedImportDestinationClick(Sender: TObject);
+begin
+    if SelectDirectoryDialog1.Execute then begin
+        LabelImportDestination.Caption := TrimFilename(SelectDirectoryDialog1.FileName + PathDelim);
+        LabelImportSource.ShowHint := True;
+        TestImportDestination();
+	end;
 end;
 
 procedure TFormMain.SpeedImportSourceDirClick(Sender: TObject);
 begin
     if SelectDirectoryDialog1.Execute then begin
-
         LabelImportSource.Caption := TrimFilename(SelectDirectoryDialog1.FileName + PathDelim);
-        LabelImportSource.Hint := LabelImportSource.Caption;
-        LabelImportSource.ShowHint := True;
+//        LabelImportSource.Hint := LabelImportSource.Caption;
+//        LabelImportSource.ShowHint := True;
         DisplayImportPossibilities();
 	end;
+end;
 
+procedure TFormMain.RadioImMarkDownChange(Sender: TObject);
+begin
+    if RadioImMarkDown.Checked then
+        DisplayImportPossibilities();
+end;
+
+procedure TFormMain.RadioImTextChange(Sender: TObject);
+begin
+    if RadioImText.Checked then
+        DisplayImportPossibilities();
+end;
+
+procedure TFormMain.ButtonImSelectAllClick(Sender: TObject);
+var
+    Index : integer = 0;
+begin
+    Index := CheckListImportFiles.Count;
+    while Index > 0 do begin
+        dec(index);
+        CheckListImportFiles.Checked[Index] := True;
+    end;
+end;
+
+procedure TFormMain.ButtonImUnselectAllClick(Sender: TObject);
+var
+    Index : integer = 0;
+begin
+    Index := CheckListImportFiles.Count;
+    while Index > 0 do begin
+        dec(index);
+        CheckListImportFiles.Checked[Index] := False;
+    end;
 end;
 
 procedure TFormMain.TabImportShow(Sender: TObject);
 begin
     StatusBar1.SimpleText:= '';
     LabelErrorMessage.Caption := '';
-    TestImportDestination(false);      // Test the default, tomboy-ng's notes dir.
-    ImportReadyToGo();
+    TestImportDestination();
 end;
 
 
