@@ -1,6 +1,8 @@
 TomboyTools
 ===========
 
+TomboyTools
+
 
 
 This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown and HTML.
@@ -15,4 +17,4 @@ While primarily made for my own use or, from time to time to help a tomboy-ng us
 
 
 
-<p align="center"><img src="https://github.com/davidbannon/TomboyTools/blob/master/Gallery/TTScreen.png"></p>
+<p align="center"><img src="https://github.com/davidbannon/TomboyTools/blob/main/Gallery/TTScreen.png"></p>
