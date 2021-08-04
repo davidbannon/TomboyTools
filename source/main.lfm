@@ -21,9 +21,9 @@ object FormMain: TFormMain
     Height = 358
     Top = 50
     Width = 907
-    ActivePage = TabImport
+    ActivePage = TabExport
     Anchors = [akTop, akLeft, akRight, akBottom]
-    TabIndex = 1
+    TabIndex = 0
     TabOrder = 0
     object TabExport: TTabSheet
       Hint = 'ie Preserve File Name'
@@ -34,35 +34,35 @@ object FormMain: TFormMain
       object LabelSourcePrompt: TLabel
         Left = 104
         Height = 19
-        Top = 168
+        Top = 208
         Width = 116
         Caption = 'From Directory :'
       end
       object LabelSource: TLabel
         Left = 104
         Height = 19
-        Top = 192
+        Top = 232
         Width = 87
         Caption = 'LabelSource'
       end
       object LabelDestinationPrompt: TLabel
         Left = 104
         Height = 19
-        Top = 232
+        Top = 264
         Width = 134
         Caption = 'Save To Directory :'
       end
       object LabelDestination: TLabel
         Left = 104
         Height = 19
-        Top = 256
+        Top = 288
         Width = 120
         Caption = 'LabelDestination'
       end
       object SpeedSetDestination: TSpeedButton
         Left = 31
         Height = 40
-        Top = 232
+        Top = 264
         Width = 64
         Caption = 'Set'
         OnClick = SpeedSetDestinationClick
@@ -81,6 +81,7 @@ object FormMain: TFormMain
         ItemHeight = 0
         OnClick = CheckListBox1Click
         ParentFont = False
+        Sorted = True
         TabOrder = 0
         TopIndex = -1
       end
@@ -165,21 +166,24 @@ object FormMain: TFormMain
       end
       object GroupBox4: TGroupBox
         Left = 272
-        Height = 152
+        Height = 188
         Top = 16
         Width = 185
         Caption = 'Export As'
-        ClientHeight = 131
+        ClientHeight = 167
         ClientWidth = 181
         TabOrder = 3
         object RadioExMarkDown: TRadioButton
           Left = 16
           Height = 21
+          Hint = 'A subset of CommonMark'
           Top = 8
           Width = 104
           Caption = 'Mark Down'
           Checked = True
           OnChange = RadioExMarkDownChange
+          ParentShowHint = False
+          ShowHint = True
           TabOrder = 0
           TabStop = True
         end
@@ -204,10 +208,25 @@ object FormMain: TFormMain
         object CheckFollowLinks: TCheckBox
           Left = 40
           Height = 21
+          Hint = 'Tick only first page'
           Top = 96
           Width = 109
           Caption = 'Follow Links'
+          ParentShowHint = False
+          ShowHint = True
           TabOrder = 3
+        end
+        object RadioExMan: TRadioButton
+          Left = 16
+          Height = 21
+          Hint = '"nroff -man new-man-page.1" to view'
+          Top = 128
+          Width = 93
+          Caption = 'Man Page'
+          OnChange = RadioExMarkDownChange
+          ParentShowHint = False
+          ShowHint = True
+          TabOrder = 4
         end
       end
       object ButtonSelectAll: TButton
@@ -454,7 +473,7 @@ object FormMain: TFormMain
       Height = 19
       Top = 16
       Width = 465
-      Caption = 'Tested against tomboy-ng, should work with Tomboy etc.     v0.05'
+      Caption = 'Tested against tomboy-ng, should work with Tomboy etc.     v0.06'
     end
   end
   object StatusBar1: TStatusBar
@@ -515,7 +534,7 @@ object FormMain: TFormMain
     end
   end
   object SelectDirectoryDialog1: TSelectDirectoryDialog
-    Left = 336
-    Top = 248
+    Left = 480
+    Top = 352
   end
 end

@@ -34,8 +34,10 @@ type
   private
 
     function ExportAll()               : boolean;
-    function ExportFile(ID: string)    : boolean;   // Expects just ID, ie basename
+                                    // Expects just the ID or base filename,
+    function ExportFile(ID: string)    : boolean;
     function ExportHTML(ID: string): boolean;
+    function ExportMan(ID: string): boolean;
                     {  Expects just ID, ie basename, if STL <> nil, does not do any file
                        i/o stuff, just returns with the list populated with md content. }
     function ExportMD(ID: string; STL: TStringList=nil): boolean;
@@ -54,7 +56,8 @@ type
     FollowLinks : boolean;
     ErrorMessage : string;          // Empty unless something bad happened.
     NotesProcessed : integer;       // How many things have we done something to ?
-                            // Public : Exports just the file passed, can call repeatedly
+                            // Public : Exports just the FFN file passed, can call repeatedly
+                            // The FFN must be consistent with NoteDir and end with '.note';
     function ExportOneFile(FFN: string): boolean;
                         { Public : Gets passed an ID and created, empty stringlist.
                           Will load indicate file as md. Observes only NoteDir
@@ -69,7 +72,8 @@ implementation
 
 { UTB2md }
 
-uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, commonmark, TB_utils, tt_utils, exporthtml;
+uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, TB_utils, tt_utils,
+        commonmark, exporthtml, export2man;
 
 
 function TExportNote.ExportAll(): boolean;
@@ -180,10 +184,12 @@ begin
 end;
 *)
 
+
 function TExportNote.ExportOneFile(FFN : string) : boolean;
 begin
     result := ExportFile(ExtractFileNameOnly(FFN));
 end;
+
 
 function TExportNote.ExportFile(ID: string): boolean;
 begin
@@ -191,6 +197,7 @@ begin
         'md', 'mark down', 'markdown', 'po file' : result := ExportMd(ID);
         'text', 'plain text', 'txt' : result := ExportText(ID);
         'html' : result := ExportHTML(ID);
+        'man'  : result := ExportMan(ID);
     else  begin
         ErrorMessage := 'ERROR : unidentified outformat requested ' + OutFormat;
         Debugln(ErrorMessage);
@@ -372,10 +379,9 @@ begin
 
 end;
 
-
-function TExportNote.ExportHTML(ID : string): boolean;
+function TExportNote.ExportMan(ID : string): boolean;
 var
-    HTML : TExportHTML;
+    Man : TExport2Man;
 begin
     if not FileExists(NoteDir + ID + '.note') then exit(False);
     //debugln('export ' + NoteDir + ID + '.note to ' + DestDir + TitleFromID(ID, True, LTitle) + '.md');
@@ -384,6 +390,25 @@ begin
         OutFileName := DestDir + TitleFromID(ID, True, LTitle)
     else OutFileName := DestDir + ID;
     OutFileName := OutFileName + '.html'; }
+    Man := TExport2Man.Create();
+    Man.NotesDir:= AppendPathDelim(NoteDir);
+    Man.OutDir := AppendPathDelim(DestDir);
+    try
+        Result := Man.ExportFile(NoteDir + ID + '.note');
+        self.ErrorMessage := Man.ErrorString;
+        exit;
+    finally
+        Man.Free;
+    end;
+end;
+
+
+function TExportNote.ExportHTML(ID : string): boolean;
+var
+    HTML : TExportHTML;
+begin
+    if not FileExists(NoteDir + ID + '.note') then exit(False);
+    result := true;
     HTML := TExportHTML.Create();
     HTML.NotesDir:= AppendPathDelim(NoteDir);
     HTML.OutDir := AppendPathDelim(DestDir);

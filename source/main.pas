@@ -48,6 +48,7 @@ type
 				PageControl1: TPageControl;
                 PanelLower: TPanel;
 				PanelTop: TPanel;
+                RadioExMan: TRadioButton;
                 RadioImMarkDown: TRadioButton;
                 RadioImText: TRadioButton;
                 RadioExMarkDown: TRadioButton;
@@ -80,6 +81,7 @@ type
                 procedure FormDestroy(Sender: TObject);
                 procedure FormShow(Sender: TObject);
                 procedure RadioExDirChange(Sender: TObject);
+                procedure RadioExManChange(Sender: TObject);
                 procedure RadioExMarkDownChange(Sender: TObject);
                 procedure RadioExNotebookChange(Sender: TObject);
                 procedure RadioExNotesChange(Sender: TObject);
@@ -220,11 +222,20 @@ begin
 	    end;
     end;
 end;
-                        // NOTE : called for change to all three radio buttons
+
+procedure TFormMain.RadioExManChange(Sender: TObject);
+begin
+
+end;
+
+
+
+                        // NOTE : called for change to all four radio buttons
 procedure TFormMain.RadioExMarkDownChange(Sender: TObject);
 begin
     CheckFollowLinks.enabled := RadioExHTML.Checked;
-    GroupBox2.Enabled := TRadioButton(sender).Name <> 'RadioExHtml';
+    GroupBox2.Enabled := (TRadioButton(sender).Name <> 'RadioExHtml')
+                            or (TRadioButton(sender).Name <> 'RadioExMan');
 end;
 
 procedure TFormMain.RadioExNotebookChange(Sender: TObject);
@@ -252,6 +263,7 @@ var
     Exporter : TExportNote;
     Index : integer;
 begin
+    LabelErrorMessage.Caption := '';
     Exporter := TExportNote.Create;
     try
         Exporter.DestDir := appendPathDelim(LabelDestination.Caption);
@@ -262,6 +274,7 @@ begin
         if RadioExMarkDown.Checked then Exporter.OutFormat := 'md';
         if RadioExText.Checked then Exporter.OutFormat := 'text';
         if RadioExHTML.Checked then Exporter.OutFormat := 'html';
+        if RadioEXMan.checked then Exporter.OutFormat := 'man';
         if  Exporter.OutFormat = '' then begin
             showmessage('Error, out format not set');
             exit;
@@ -272,6 +285,8 @@ begin
             //debugln('Exporting ' + CheckListBox1.Items[Index]);
             if CheckListBox1.Checked[Index] then
                 Exporter.ExportOneFile(String(CheckListBox1.Items.Objects[Index]));
+            if Exporter.ErrorMessage <> '' then
+                LabelErrorMessage.Caption := Exporter.ErrorMessage;
         end;
     finally
         Exporter.Free;

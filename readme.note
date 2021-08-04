@@ -4,7 +4,7 @@
   
 <text xml:space="preserve"><note-content version="0.1"><underline>TomboyTools</underline>
 
-This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown and HTML.
+This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown, Man Page and HTML (following links).
 
 You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, tomboy-ng or, perhaps, G-Note.
 
@@ -12,14 +12,14 @@ While primarily made for my own use or, from time to time to help a tomboy-ng us
 
 &lt;p align="center"&gt;&lt;img src="https://github.com/davidbannon/TomboyTools/blob/main/Gallery/TTScreen.png"&gt;&lt;/p&gt;
 </note-content></text>
-  <last-change-date>2021-07-30T21:05:04.7501296+10:00</last-change-date>
-  <last-metadata-change-date>2021-07-30T21:05:04.7501296+10:00</last-metadata-change-date>
+  <last-change-date>2021-08-04T20:24:30.9784038+10:00</last-change-date>
+  <last-metadata-change-date>2021-08-04T20:24:30.9784038+10:00</last-metadata-change-date>
   <create-date>2021-07-30T20:55:43.5532106+10:00</create-date>
   <cursor-position>1</cursor-position>
   <selection-bound-position>1</selection-bound-position>
   <width>695</width>
   <height>505</height>
-  <x>1086</x>
-  <y>207</y>
+  <x>747</x>
+  <y>212</y>
   <open-on-startup>False</open-on-startup>
 </note>

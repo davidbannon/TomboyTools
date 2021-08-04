@@ -40,6 +40,7 @@ unit tb_utils;
   2021/01/29  Added TB_MakeFileName
   2021/05/11  FindInStringList was not checking last line of list
   2021/07/30  Added some methods from TT_Utils, need to merge back to TB-NG
+  2021/07/31  A fix to ensure that </note-content> is removed with metadata
 }
 
 
@@ -96,7 +97,7 @@ procedure SayDebugSafe(st: string);
 
 implementation
 
-uses dateutils, LazLogger, {$ifdef LINUX} Unix, {$endif}           // We call a ReReadLocalTime();
+uses dateutils, {$IFDEF LCL}LazLogger, {$ENDIF} {$ifdef LINUX} Unix, {$endif}           // We call a ReReadLocalTime();
         laz2_DOM, laz2_XMLRead;
 
 const ValueMicroSecond=0.000000000011574074;            // ie double(1) / double(24*60*60*1000*1000);
@@ -354,7 +355,7 @@ var
 //    Index : integer = 1;
 begin
     if not FileExists(FFN) then begin
-        debugln('ERROR : File does not exist = '  + FFN);
+        SayDebugSafe('ERROR : File does not exist = '  + FFN);
         exit('');
 	end;
 	ReadXMLFile(Doc, FFN);
@@ -378,7 +379,7 @@ begin
         end;
         Result := copy(Result, 1, 42);      // Because 42 is the meaning of life
 	end;  }
-    if Result = '' then Debugln('Title not found' + FFN);
+    if Result = '' then SayDebugSafe('Title not found' + FFN);
     //LenTitle := length(Result);
 end;
 
@@ -399,8 +400,9 @@ begin
         delete(St, CutOff, 1000);
         STL.Delete(Index);
         STL.Insert(Index, St);
+        inc(Index);
     end;
-    inc(Index);     // Get rid of the remainder.
+    // Now Get rid of the remainder.
     while Index < StL.Count do StL.Delete(Index);
     // OK, now the start of the list
     Index := FindInStringList(StL, '<note-content');
