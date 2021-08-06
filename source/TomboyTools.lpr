@@ -25,7 +25,7 @@ uses
 begin
         if Finished() then exit;
         RequireDerivedFormResource:=True;
-		Application.Scaled:=True;
+    Application.Scaled := True;
         Application.Initialize;
 		Application.CreateForm(TFormMain, FormMain);
         Application.Run;

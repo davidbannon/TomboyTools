@@ -1,0 +1,80 @@
+.TH TomboyTools
+
+
+
+
+
+
+
+
+
+.SH NAME
+tomboytools \- import and export Tomboy notes, various formats supported.
+
+.SH SYNOPSIS
+tomboytools  [\-s SRC_Dir]  [\-d DEST_Dir]  (for GUI mode)
+
+tomboytools  \-a  \-\-action=[note2md; note2txt; md2note; txt2note] OTHER_OPTIONS (for command line mode)
+
+.SH DESCRIPTION
+A tool that can be used to export or import Tomboy notes, for use with tomboy\-ng, Tomboy or possibly, GNote.  Will export notes to mark down (in a subset of commonMark), plain text, HTML (optionally following internal Tomboy note links) or Man Page.
+
+The application will run in command line mode if it is provide sufficent parameters or will open a GUI offering a richer set of options.  Its also possible to go to GUI mode if the command line specifies \-s and/or \-d to define the directory where input files are found, the source, and the directory where output files will be written, the destination.
+
+When exporting to Man Page, you should use the Man Page template or, in tomboy\-ng Single Note Mode, rename the template to your application name. The template has instructions.
+
+.SH OPTIONS
+.TP
+\-a  \-\-action=[note2md; note2txt; md2note; txt2note, note2pot]
+Use in command line mode, choose the output format.
+
+.TP
+\-s \-\-source=[dir or KEY]
+The directory where input files are to be found, useful in both command line and GUI mode.
+
+.TP
+\-d  \-\-destination=[dir or KEY]
+The directory where output files will be written, useful in both command line and GUI mode.
+
+.TP
+\-b  \-\-notebook="Notebook Name"
+The name of a Notebook containing the notes you wish exported.
+
+.TP
+\-n  \-\-note="Note Name"
+The title of a note you wish to export.
+
+.TP
+\-f  \-\-file="File Name"
+The file name of a note (without path) you wish to import. The note will be looked for in the source directory, \-s above.
+
+.TP
+\-t  \-\-title\-line
+Note Title is the first line of the source file. The output file will have the same file name as the input file.
+
+.TP
+\-V  \-\-verbose
+Tell us what it is doing.
+
+.TP
+\-e  \-\-examples
+Print some example command lines and exit.
+
+.TP
+\-\-help
+Print this help and exit.
+
+
+.SH FILES
+
+/usr/bin/tomboytools
+
+tomboytools.1
+
+.SH SEE ALSO
+https://github.com/davidbannon/TomboyTools
+
+
+
+
+

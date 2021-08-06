@@ -165,6 +165,9 @@ begin
     debugln(' The file names (without extension) will be used for the note titles.');
     debugln(' Notes will be put in Special Notes notebook which MUST exist.');
     debugln(' ');
+    debugln(' TomboyTools -s ./.  -d ./.');
+    debugln(' Will use the GUI with both source and destination set to current dir');
+    debugln(' ');
 end;
 
 function GetDefaultNoteDir(OldTB : boolean = false) : string;

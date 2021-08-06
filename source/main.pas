@@ -34,6 +34,7 @@ type
                 GroupBox3: TGroupBox;
                 GroupBox4: TGroupBox;
                 GroupBox5: TGroupBox;
+                LabelVersion: TLabel;
 				Label3: TLabel;
 				Label5: TLabel;
 				Label6: TLabel;
@@ -129,16 +130,7 @@ implementation
 
 uses cmdline, FileUtil, LazFileUtils, export_notes, import_notes, tb_utils, tt_utils;
 
-//const
-
-    //cbNG = 0;            // The selected index ComboSource, must agree with order of strings in Combo, set in ObjectInspector
-    //cbTB = 1;
-    //cbManual = 2;
-    //cbNG_ALT = 3;       // Thats my tomboy-ng-alt, here only for testing, don't ship with this one in combos.
-
-    //cbDirectory = 0;    // Export Mode combobox, must agree with order of strings in Combo, set in ObjectInspector
-    //cbBook = 1;
-
+const Version_string  = {$I %TTools_VER};
 
 {$R *.lfm}
 
@@ -151,6 +143,7 @@ uses cmdline, FileUtil, LazFileUtils, export_notes, import_notes, tb_utils, tt_u
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
     Ready := False;
+    LabelVersion.Caption := Version_string;
     LabelErrorMessage.Caption := '';
     RSLFiles := nil;
     RegImFiles := Nil;

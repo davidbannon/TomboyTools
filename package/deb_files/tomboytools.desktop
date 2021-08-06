@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=tomboy-ng
+Comment=Cross Platform Notes
+GenericName=Note Taker
+Exec=tomboytools
+Icon=/usr/share/icons/hicolor/256x256/apps/tomboytools.png
+Terminal=false
+Type=Application
+Categories=GNOME;Utility
+Keywords=notes;
