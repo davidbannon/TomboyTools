@@ -28,7 +28,7 @@ DOC_DIR="BUILD/usr/share/doc/$PRODUCT/"
 
 LPI="TomboyTools.lpi"
 BUILDOPTS=" -B --quiet --quiet"
-# BUILDOPTS=" -B --quiet"
+# BUILDOPTS=" -B "
 BUILDDATE=`date -R`
 LAZ_FULL_DIR="$1"
 LAZ_DIR=`basename "$LAZ_FULL_DIR"`
@@ -97,18 +97,28 @@ function BuildAMode () {
         ;;
         ReleaseWin64)
             CPU="x86_64"
-            OS="$PRODUCT"-64.exe
+	    OS="win64"
+            BIN="$PRODUCT"-64.exe
         ;;
         ReleaseRasPi)
-            CPU="armhf"
+            CPU="arm"
             OS="linux"
             BIN="$PRODUCT"-armhf
         ;;
     esac
     cd ../source
     rm "$BIN"
-    TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS --pcp="$LAZ_CONFIG" --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+    # TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS --pcp="$LAZ_CONFIG" --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+    TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS $LAZ_CONFIG --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+    # TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+
+    if [ ! -f "$BIN" ]; then
+	    echo "----- ERROR failed to build $BIN ---------"
+	   exit
+    fi	 
     cd ../package
+
+#/home/dbannon/bin/Lazarus/trunk/lazbuild -B --cpu=x86_64 --build-mode=ReleaseLin64 --os=linux TomboyTools.lpi
 }
 
 
@@ -169,14 +179,8 @@ function DebianPackage () {
 		CTRL_RELEASE="Qt5 release."
 		;;
 	"armhf")
-		if [ ! -f "tomboytools-armhf" ]; then
-#			echo "Notice - Arm binary present"
-#		else
-			echo "********* WARNING - arm binary not present ********"
-			return 1
-		fi
-		cp tomboytools-armhf BUILD/usr/bin/tomboytools
-		#CTRL_DEPENDS=""   # just watch I dont need spec :armhf for each dep here
+		cp $SOURCE_DIR/tomboytools-armhf BUILD/usr/bin/tomboytools
+		# CTRL_DEPENDS=""   # just watch I dont need spec :armhf for each dep here
 		CTRL_RELEASE="Raspberry Pi release."
 		;;
 	esac
@@ -219,9 +223,9 @@ function MkWinPreInstaller() {
 	cp "$SOURCE_DIR"/tomboytools-32.exe "$WIN_DIR"/.
 	cp ../deb_files/copyright "$WIN_DIR/copying"
 	cp AfterInstall.txt "$WIN_DIR/."
-	sed "s/MyAppVersion \"REPLACEME\"/MyAppVersion \"$VERSION\"/" tomboy-ng.iss > "$WIN_DIR/tomboy-ng.iss.temp"
-	mkdir "$WIN_DIR/HELP_DIR"
-	MANWIDTH=70 man -l ../doc/tomboy-ng.1 > "$WIN_DIR/readme.txt"
+	sed "s/MyAppVersion \"REPLACEME\"/MyAppVersion \"$VERSION\"/" tomboy-ng.iss > "$WIN_DIR/tomboy-ng.iss"
+	# mkdir "$WIN_DIR/HELP_DIR"
+	MANWIDTH=70 man -l deb_files/tomboytools.1 > "$WIN_DIR/readme.txt"
 	unix2dos -q "$WIN_DIR/readme.txt"
 	echo "----------- Windows installer dir created -----------"
 }
@@ -230,36 +234,41 @@ function MkWinPreInstaller() {
 
 # It all starts here
 
-if [ -d "$HOME/.Laz_$LAZ_DIR" ]; then     # try my way of naming config first
-	LAZ_CONFIG="$HOME/.Laz_$LAZ_DIR";
+if [ -f "$LAZ_FULL_DIR"/lazarus.cfg ]; then
+	LAZ_CONFIG=""				# Assume if we have a cfg, it specifies pcp ??
 else
-	echo "------ Testing for the .Laz config $HOME------"
-	if [ -d "$HOME/.$LAZ_DIR" ]; then
-		LAZ_CONFIG="$HOME/.$LAZ_DIR";
-	else 
-		echo "**** CANNOT FIND Laz Config, exiting ****";
-		exit;
+
+	if [ -d "$HOME/.Laz_$LAZ_DIR" ]; then     # try my way of naming config first
+		LAZ_CONFIG=" --pcp=""$HOME/.Laz_$LAZ_DIR";
+	else
+		echo "------ Testing for the .Laz config $HOME------"
+		if [ -d "$HOME/.$LAZ_DIR" ]; then
+			LAZ_CONFIG=" --pcp=""$HOME/.$LAZ_DIR";
+		else 
+			echo "**** CANNOT FIND Laz Config, exiting ****";
+			exit;
+		fi
 	fi
 fi
 
 echo "-----  LAZ_CONFIG is $LAZ_CONFIG ------"
 
 
-TESTMODE='Nyes'
+TESTMODE='yxes'
 
 if [ "$TESTMODE" == "yes" ]; then
-    BuildAMode ReleaseLin64
-    LookForBinary tomboytools-64
-    DebianPackage amd64
+    BuildAMode ReleaseRasPi
+    LookForBinary tomboytools-armhf
+    #DebianPackage amd64
     exit
 fi
 
 
 # Build the Binaries
-for REL in ReleaseLin64 ReleaseWin64 ReleaseLin32 ReleaseWin32 ; do BuildAMode "$REL" ; done
+for REL in ReleaseLin64 ReleaseWin64 ReleaseLin32 ReleaseWin32 ReleaseRasPi ; do BuildAMode "$REL" ; done
 
 # Check that they are all there.
-for BIN in "$PRODUCT" "$PRODUCT"-32 "$PRODUCT"-32.exe "$PRODUCT"-64.exe ; do LookForBinary "$BIN"; done
+for BIN in "$PRODUCT"-64 "$PRODUCT"-32 "$PRODUCT"-32.exe "$PRODUCT"-64.exe ; do LookForBinary "$BIN"; done
 
 # Make the debian packages.
 for BIN in amd64 i386 armhf ; do DebianPackage "$BIN"; done

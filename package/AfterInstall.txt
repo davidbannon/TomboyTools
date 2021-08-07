@@ -1,0 +1,5 @@
+OK, looks like tomboytools is now installed.
+
+Windows users will probably prefer to use the GUI version but there is a readme.txt outlining command line options of you perhaps want to build a work flow.
+
+Please report you experiences with tomboytools, I am open to suggested improvements.
