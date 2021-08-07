@@ -1,17 +1,23 @@
 TomboyTools
 ===========
 
+TomboyTools
+
 
 
 This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown, Man Page and HTML (following links).
 
 
 
-You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, tomboy-ng or, perhaps, G-Note.
+You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, [tomboy-ng](https://github.com/tomboy-notes/tomboy-ng) or, perhaps, G-Note.
 
 
 
-While primarily made for my own use or, from time to time to help a tomboy-ng user, I can make a packaged version if you need one. Best to ask on the tomboy-ng issues page. https://github.com/tomboy-notes/tomboy-ng/issues
+Binary install packages for Linux and Windows are available from the [Release Page](https://github.com/davidbannon/TomboyTools/releases)
+
+
+
+If you have any problems, please report them here.
 
 
 

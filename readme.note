@@ -6,14 +6,16 @@
 
 This is a small FPC/Lazarus project that provides some tools to help manage a Tomboy/tomboy-ng note collection. Things like importing and exporting, perhaps in in bulk. Exporting as plain text, Markdown, Man Page and HTML (following links).
 
-You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, tomboy-ng or, perhaps, G-Note.
+You can export and export notes, one by one, all in a particular Notebook or all in a directory.  This tool should work fine with Tomboy, [tomboy-ng](https://github.com/tomboy-notes/tomboy-ng) or, perhaps, G-Note.
 
-While primarily made for my own use or, from time to time to help a tomboy-ng user, I can make a packaged version if you need one. Best to ask on the tomboy-ng issues page. https://github.com/tomboy-notes/tomboy-ng/issues
+Binary install packages for Linux and Windows are available from the [Release Page](https://github.com/davidbannon/TomboyTools/releases)
+
+If you have any problems, please report them here.
 
 &lt;p align="center"&gt;&lt;img src="https://github.com/davidbannon/TomboyTools/blob/main/Gallery/TTScreen.png"&gt;&lt;/p&gt;
 </note-content></text>
-  <last-change-date>2021-08-04T20:24:30.9784038+10:00</last-change-date>
-  <last-metadata-change-date>2021-08-04T20:24:30.9784038+10:00</last-metadata-change-date>
+  <last-change-date>2021-08-07T14:17:37.4301531+10:00</last-change-date>
+  <last-metadata-change-date>2021-08-07T14:17:37.4301531+10:00</last-metadata-change-date>
   <create-date>2021-07-30T20:55:43.5532106+10:00</create-date>
   <cursor-position>1</cursor-position>
   <selection-bound-position>1</selection-bound-position>
