@@ -221,9 +221,9 @@ function MkWinPreInstaller() {
 	mkdir "$WIN_DIR"
 	cp "$SOURCE_DIR"/tomboytools-64.exe "$WIN_DIR/."
 	cp "$SOURCE_DIR"/tomboytools-32.exe "$WIN_DIR"/.
-	cp ../deb_files/copyright "$WIN_DIR/copying"
+	cp deb_files/copyright "$WIN_DIR/copying"
 	cp AfterInstall.txt "$WIN_DIR/."
-	sed "s/MyAppVersion \"REPLACEME\"/MyAppVersion \"$VERSION\"/" tomboy-ng.iss > "$WIN_DIR/tomboy-ng.iss"
+	sed "s/MyAppVersion \"REPLACEME\"/MyAppVersion \"$VERSION\"/" tomboytools.iss > "$WIN_DIR/tomboytools.iss"
 	# mkdir "$WIN_DIR/HELP_DIR"
 	MANWIDTH=70 man -l deb_files/tomboytools.1 > "$WIN_DIR/readme.txt"
 	unix2dos -q "$WIN_DIR/readme.txt"
