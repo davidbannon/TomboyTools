@@ -23,6 +23,9 @@ unit import_notes;
 
     2.  On completion, send tomboy-ng a hup if its running so it knows to refresh.
 
+HISTORY :
+    2021/08/19   Rewrite much of md import. More use of St.Replace() model.
+
 }
 
 {$mode objfpc}{$H+}
@@ -38,8 +41,8 @@ type
 
     TImportNotes = class
     private
-        function ChangeBold(var St: string): boolean;
-        function ChangeItalic(var St: string): boolean;
+//        function ChangeBold(var St: string): boolean;
+//        function ChangeItalic(var St: string): boolean;
         function ChangeSmallFont(var St: string): boolean;
         function ChangeTag(var St: string; const ChangeFrom, ChangeToLead,
             ChangeToTrail: string): boolean;
@@ -49,10 +52,12 @@ type
                             {  Returns the 1 based pos of the passed Tag, Leading says its a leading tag
                                must have whitespace of newline to left and an alpha mumeric to the right.
                                Reverse if Leading is false.  Ret 0 if a suitable tag is not found. }
-        function PosMDTag(const St, Tag: string; const leading: boolean): integer;
+        function PosMDTag(const St, Tag: string; StartAt: integer;
+            const leading: boolean): integer;
                             // Gets passed a List with note content, puts an appropriate
                             // header and footer on.
-        function ProcessPlain(Cont: TStringList; const Title: string): boolean;
+        function ProcessPlain(Cont: TStringList; const Title: string; LCD : string = '';
+                    CDate: string = ''): boolean;
 
     public
         ErrorMsg : string;              // '' if everything OK, content means something bad happened
@@ -63,6 +68,10 @@ type
         KeepFileName : boolean;         // The note will have same base name as import.
         NoteBook : string;              // Maybe empty, if not, imported notes will go into this notebook.  ToDo : make this work
         function Execute(): integer;    // you know all you need, go do it.
+        // Alt action for this Unit, converts a StringList that contains
+        // markdown to a Note, no file i/o happens, note is returned in
+        // the same stringlist. If LCD, CDate are '' then defaults are used.
+        function MDtoNote(Content: TStringList; const LCD, CDate: string): boolean;
         constructor Create;
         destructor Destroy; override;
 end;
@@ -75,19 +84,22 @@ implementation
 
 uses LazFileUtils, LazUTF8, LCLProc, TB_utils;
 
-function TImportNotes.ProcessPlain(Cont : TStringList; const Title : string) : boolean;
-var
-    DateSt : string;        // eg '2020-05-19T18:58:37.9513193+10:00';
+function TImportNotes.ProcessPlain(Cont: TStringList; const Title: string;
+    LCD: string; CDate : string): boolean;
+//var
+    //DateSt : string;        // eg '2020-05-19T18:58:37.9513193+10:00';
 begin
-    DateSt := TB_GetLocalTime();
+    if LCD = '' then LCD := TB_GetLocalTime();
+    if CDate = '' then CDate := TB_GetLocalTime();
+    //LCDateSt := TB_GetLocalTime();
     Cont.Insert(0, '	<text xml:space="preserve"><note-content version="0.1">' + Title);
     Cont.Insert(0, '	<title>' + Title + '</title>');
     Cont.Insert(0, '<note version="0.3" xmlns:link="http://beatniksoftware.com/tomboy/link" xmlns:size="http://beatniksoftware.com/tomboy/size" xmlns="http://beatniksoftware.com/tomboy">');
     Cont.Insert(0, '<?xml version="1.0" encoding="utf-8"?>');
     Cont.Add('    </note-content></text>');
-    Cont.Add('      <last-change-date>' + DateSt + '</last-change-date>');
-    Cont.Add('      <last-metadata-change-date>' + DateSt + '</last-metadata-change-date>');
-    Cont.Add('      <create-date>' + DateSt + '</create-date>');
+    Cont.Add('      <last-change-date>' + LCD + '</last-change-date>');
+    Cont.Add('      <last-metadata-change-date>' + LCD + '</last-metadata-change-date>');
+    Cont.Add('      <create-date>' + CDate + '</create-date>');
     Cont.Add('      <cursor-position>1</cursor-position>');
     Cont.Add('      <width>1000</width>');
     Cont.Add('      <height>626</height>');
@@ -128,7 +140,7 @@ procedure TImportNotes.DoLineHeadings(const STL : TStringList);
 var
     i : integer = 1;            // Line 0 is the heading
 
-                    // Ret true if passed line is a SeText line, https://spec.commonmark.org/
+    // Ret true if passed line is a SeText line, https://spec.commonmark.org/
     function IsSeText(const St : string; Se : char) : boolean;
     var
         j : integer = 1;
@@ -175,127 +187,70 @@ begin
     end;
 end;
 
-function  TImportNotes.PosMDTag(const St, Tag : string; const leading : boolean) : integer;
+
+{ A MD start tag must be at start of line or have whitespace in front and something at the end
+that is not whitespace.
+
+And end tag cannot be at start of line, must have a md start tag (and content?) before it
+and must have whitespace or newline at the end. Interestingly, here we allow anything between
+#32 and '/' to end a tag, I wonder why ?
+
+We count the appropriate angle bracket as whitespace here as it must be a valid XML tag. }
+
+function  TImportNotes.PosMDTag(const St, Tag : string; StartAt : integer; const leading : boolean) : integer;
 var
     Stage : integer = 0;
 begin
-    {  Tag = '**'
-       Leading ->  [sol]**Text   or .. **Text
-       Trailing ->   ..Text** ...   or   ...Text**[eol]  }
     if Leading then begin
         while Stage < length(St) do begin
-            Result :=  St.IndexOf(Tag, Stage);                      // zero based !
-            if Result = -1 then exit;                            // no more candidates
-            if (Result = 0) or (St[Result] in [' '..'/']) then              // start of line or has space before tag
-                if St[Result+length(Tag)+1] in  ['A'..'z', '0'..'9'] then
+            Result :=  St.IndexOf(Tag, Stage);                                // zero based !
+            if Result = -1 then exit;                                         // no more candidates
+            if (Result = 0)                                                   // Start of line
+                    or (St[Result] in [' '..'/', '>']) then                   // has whitespace before tag
+                if St[Result+length(Tag)+1] <> ' ' then begin                 // is not followed by whitespace
+                    //writeln('LEAD tag=' + tag + ' res=' + inttostr(Result) + ' [' + St + ']');
                     exit(Result+1);
+                end;
             Stage := Result+1;
         end;
     end else begin
+        Stage := StartAt;                                                     // skip past any end tag we found.
         while Stage < length(St) do begin
-            Result :=  St.IndexOf(Tag, Stage);  // zero based !
+            Result :=  St.IndexOf(Tag, Stage);                                // zero based !
             if Result = -1 then exit;
-            if ((Result+length(tag)) >= Length(St)) or (St[Result+length(Tag)+1] in [' '..'/']) then    // at end of line or a space after
-                if St[Result] in  ['A'..'z', '0'..'9', '?', '.', ':', ';', ','] then                       // thats before tag
+            if  (((Result+length(tag)) >= Length(St))                         // last thing in the line
+                    or (St[Result+length(Tag)+1] in [' '..'/', '<'])) then    // has a whitespace or newline afterwards
+                if St[Result] <> ' ' then begin                               // must have something that is not whitespace                   // thats before tag
+                    //writeln('TRAL tag=' + tag + ' res=' + inttostr(Result) + ' [' + St + ']');
                     exit(Result+1);
+                end;
             Stage := Result+1;
         end;
     end;
     Result := -1;
 end;
 
-function TImportNotes.ChangeBold(var St : string)  : boolean;
-var
-    PosStart, PosEnd : integer;
-begin
-    // like this **bold** or __bold__
-    Result := False;
-    PosStart := PosMDTag(St, '**', True);
-    if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, '**', False);
-        if (PosEnd > 0) then begin
-            delete(St, PosEnd, 2);
-            insert('</bold>', St, PosEnd);
-            delete(St, PosStart, 2);
-            insert('<bold>', St, PosStart);
-            result := True;
-        end;
-    end;
-    PosStart := PosMDTag(St, '__', True);
-    if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, '__', False);
-        if (PosEnd > 0) then begin
-            delete(St, PosEnd, 2);
-            insert('</bold>', St, PosEnd);
-            delete(St, PosStart, 2);
-            insert('<bold>', St, PosStart);
-            result := True;
-        end;
-    end;
-end;
-
-function TImportNotes.ChangeItalic(var St : string)  : boolean;
-var
-    PosStart, PosEnd : integer;
-begin
-    // like this *italic* or, confusingly, might be like _this_
-    Result := False;
-    PosStart := PosMDTag(St, '*', True);
-    if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, '*', False);
-        if (PosEnd > 0) then begin
-            delete(St, PosEnd, 1);
-            insert('</italic>', St, PosEnd);
-            delete(St, PosStart, 1);
-            insert('<italic>', St, PosStart);
-            result := True;
-        end;
-    end;
-    PosStart := PosMDTag(St, '_', True);
-    if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, '_', False);
-        if (PosEnd > 0) then begin
-            delete(St, PosEnd, 1);
-            insert('</italic>', St, PosEnd);
-            delete(St, PosStart, 1);
-            insert('<italic>', St, PosStart);
-            result := True;
-        end;
-    end;
-end;
-
 function TImportNotes.ChangeSmallFont(var St : string)  : boolean;
-var
-    PosStart, PosEnd : integer;
 begin
     // MD looks like this <sub>small font</sub> but by time we get here, the angle brackets have been munged.
-    Result := False;
-    PosStart := PosMDTag(St, '&lt;sub&gt;', True);              // thats <sub>
-    if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, '&lt;/sub&gt;', False);          // and thats </sub>
-        if (PosEnd > 0) then begin
-            delete(St, PosEnd, 12);
-            insert('</size:small>', St, PosEnd);
-            delete(St, PosStart, 11);
-            insert('<size:small>', St, PosStart);
-            result := True;
-        end;
-    end;
+    St := St.Replace('&lt;sub&gt;', '<size:small>', [rfReplaceAll]);
+    St := St.Replace('&lt;/sub&gt;', '</size:small>', [rfReplaceAll]);
+    exit(false);
 end;
 
 
-    // Changes any symertical MD tah to corresponding leading and trailing Tomboy tags
+    // Changes any symetrical MD tag to corresponding leading and trailing Tomboy tags
 function TImportNotes.ChangeTag(var St : string; const ChangeFrom, ChangeToLead, ChangeToTrail :  string)  : boolean;
 var
     PosStart, PosEnd, FromLength : integer;
 begin
-
     Result := False;
     FromLength := length(ChangeFrom);
-    PosStart := PosMDTag(St, ChangeFrom, True);
+    PosStart := PosMDTag(St, ChangeFrom, 0, True);
     if (PosStart > 0) then begin
-        PosEnd := PosMDTag(St, ChangeFrom, False);
+        PosEnd := PosMDTag(St, ChangeFrom, PosStart+1, False);
         if (PosEnd > 0) then begin
+            //writeln('Changing, PosStart=' + inttostr(PosStart) + ' PosEnd =' + inttostr(PosEnd) + ' [' + St + ']');
             delete(St, PosEnd, FromLength);
             insert(ChangeToTrail, St, PosEnd);
             delete(St, PosStart, FromLength);
@@ -305,9 +260,9 @@ begin
     end;
 end;
 
-{
- <size:huge><bold>huge heading</bold></size:huge><size:small>
-}
+
+//  <size:huge><bold>huge heading</bold></size:huge><size:small>
+
 function TImportNotes.MarkUpMarkDown(Cont : TStringList) : boolean;
 var
     Index : integer = 0;
@@ -324,6 +279,7 @@ begin
                 continue;
             end else DropNewLine := True;
         end else DropNewLine := True;
+//        DebugLn('Start  [' + St + ']');
         if copy(St, 1, 4) = '### ' then begin
             delete(St, 1, 4);
             St := '<size:large><bold>' + St + '</bold></size:large>'
@@ -336,20 +292,28 @@ begin
                 //<list><list-item dir="ltr">Line one</list-item></list>
                 St := '<list><list-item dir="ltr">' + St + '</list-item></list>';
             end;
-{        while ChangeBold(St) do;
-        while ChangeItalic(St) do;
-
-        while ChangeMono(St) do;
-        while ChangeSmallFont(St) do;     }
-
+        St := St.Replace('&lt;sub&gt;', '<size:small>', [rfReplaceAll]);
+        St := St.Replace('&lt;/sub&gt;', '</size:small>', [rfReplaceAll]);
+        St := St.Replace('&lt;underline&gt;', '', [rfReplaceAll]);
+        St := St.Replace('&lt;/underline&gt;', '', [rfReplaceAll]);
+        St := St.Replace('&lt;highlight&gt;', '<highlight>', [rfReplaceAll]);
+        St := St.Replace('&lt;/highlight&gt;', '</highlight>', [rfReplaceAll]);
+//        DebugLn('Middle [' + St + ']');
+        while ChangeTag(St, '***', '<italic><bold>', '</bold></italic>') do;
         while ChangeTag(St, '**', '<bold>', '</bold>') do;
         while ChangeTag(St, '__', '<bold>', '</bold>') do;
         while ChangeTag(St, '*', '<italic>', '</italic>') do;
         while ChangeTag(St, '_', '<italic>', '</italic>') do;
         while ChangeTag(St, '`', '<monospace>', '</monospace>') do;
         while ChangeTag(St, '~~', '<strikeout>', '</strikeout>') do;
-        while ChangeSmallFont(St) do;
-        //DebugLn('[' + St + ']');
+        if copy(St, 1, 2) = '  ' then begin                          // Ah, thats leading space mono
+            while length(St) > 0 do
+                if St[1] = '' then delete(St, 1, 1)                  // remove those leading spaces
+                else break;
+            if length(St) > 0 then
+                St := '<monospace>' + St + '</monospace>';
+        end;
+//        DebugLn('Finish [' + St + ']');
         Cont.Strings[Index] := St;
         inc(Index);
     end;
@@ -358,7 +322,7 @@ end;
 
 
 // ToDo : Monospaced becomes code, wrap with backtick. MD:  `Mono or code`  Tomboy:  <monospace>Mono or code</monospace>
-//      : Monospace may also be a line that starts with a space.
+//      : Monospace may also be a line that starts with a space. So renders require several spaces
 //      : Small font, gets converted to sub script in version in tomboy-ng. So, mark down is
 //        wrap text in <sub>little text</sub>     and tomboy version is <size:small>little text</size:small>
 //      : Headings, a line, perhaps two or more of just == or ------ says previous line was heading.
@@ -378,11 +342,6 @@ begin
             Content := TStringList.Create;
             Content.LoadFromFile(FullFileName);
             while Index < Content.Count do begin
-                {if Mode = 'markdown' then begin     // we need do this before angle brackets are munged.
-                    St :=  Content.Strings[Index];
-                    while ChangeSmallFont(St) do;
-                    Content.Strings[Index] := St;
-                end;}
                 Content.Strings[Index] := RemoveBadXMLCharacters(Content.Strings[Index]);
                 inc(Index);
             end;
@@ -423,6 +382,23 @@ begin
             exit;
         inc(Result);
     end;
+end;
+
+function TImportNotes.MDtoNote(Content: TStringList; const LCD, CDate: string): boolean;
+var
+    Title : string;
+    Index : integer = 0;
+begin
+    Result := True;
+    while Index < Content.Count do begin
+        Content.Strings[Index] := RemoveBadXMLCharacters(Content.Strings[Index]);
+        inc(Index);
+    end;
+    MarkUpMarkDown(Content);
+    Title := Content.Strings[0];
+    Content.Delete(0);
+    Title.Replace('#', '', [rfReplaceAll]);
+    ProcessPlain(Content, Title, LCD, CDate);
 end;
 
 constructor TImportNotes.Create;
