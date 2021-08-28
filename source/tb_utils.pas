@@ -41,6 +41,8 @@ unit tb_utils;
   2021/05/11  FindInStringList was not checking last line of list
   2021/07/30  Added some methods from TT_Utils, need to merge back to TB-NG
   2021/07/31  A fix to ensure that </note-content> is removed with metadata
+  2021/08/02  Merged back here from TomboyTools.
+  2021/08/27  Added the constants for multilevel bullets.
 }
 
 
@@ -49,7 +51,7 @@ unit tb_utils;
 interface
 
 uses
-        Classes, SysUtils;
+        Classes, SysUtils{, KMemo};
 
                         // True if looks like an ID, 36 char and dash as #9
 function IDLooksOK(const ID : string) : boolean;
@@ -94,6 +96,24 @@ function GetTitleFromFFN(FFN: string; Munge : boolean{; out LenTitle : integer})
 procedure RemoveNoteMetaData(STL : TStringList);
 
 procedure SayDebugSafe(st: string);
+
+
+// These are constants that refer to Bullet Levels, we map the KMemo names here.
+// Using them requires that we 'use' kmemo here. If not use'd, will still compile.
+// Each one MUST resolve to a different value in KMemo, do not overload.
+
+{$if declared(pnuArrowBullets)}
+const
+  BulletOne   = pnuArrowBullets;
+  BulletTwo   = pnuBullets;
+  BulletThree = pnuSquareBullets;
+  BulletFour  = pnuLetterLo;
+  BulletFive  = pnuRomanLo;
+  BulletSix   = pnuLetterHi;
+  BulletSeven = pnuRomanHi;
+  BulletEight = pnuArabic;
+  // BulletNine  = pnuArabic;       // Messes with case statements, 8 is our limit !
+{$endif}
 
 implementation
 

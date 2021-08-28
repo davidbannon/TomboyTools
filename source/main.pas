@@ -10,6 +10,12 @@ unit main;
 
     ------------------ }
 
+{   HISTORY
+    2021/08/27 Bug where ProcessNotebooks forgot to check the HTML button
+
+
+}
+
 interface
 
 uses
@@ -311,6 +317,7 @@ begin
         Exporter.OutFormat := '';
         if RadioExMarkDown.Checked then Exporter.OutFormat := 'md';
         if RadioExText.Checked then Exporter.OutFormat := 'text';
+        if RadioExHTML.Checked then Exporter.OutFormat := 'html';
         if  Exporter.OutFormat = '' then begin
             showmessage('Error, out format not set');
             exit;
