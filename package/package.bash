@@ -109,7 +109,8 @@ function BuildAMode () {
     cd ../source
     rm "$BIN"
     # TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS --pcp="$LAZ_CONFIG" --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
-    TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS $LAZ_CONFIG --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+    TTOOLS_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS $LAZ_CONFIG --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
+
     # TTools_VER="$VERSION" $LAZ_FULL_DIR/lazbuild $BUILDOPTS --cpu="$CPU" --build-mode="$1" --os="$OS" "$LPI"
 
     if [ ! -f "$BIN" ]; then
