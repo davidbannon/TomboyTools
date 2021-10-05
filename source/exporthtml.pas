@@ -16,13 +16,16 @@ unit exporthtml;
     linked html files will also be created in the same directory, with their own
     file name based on Note Title.
 
-    Note that unlike CommnoMark, this unit saves its own files and doesnot get passed
+    Note that unlike CommnoMark, this unit saves its own files and does not get passed
     a StringList, so,output cannot be used programatically.
 
     HISTORY
     2021-07-27  Started up.
+    2021/10/04  Added Tomboy's CSS in response to user request, seems to have a lot of whitespace ....
 
 }
+
+{x$define TOMBOYCSS}
 
 interface
 
@@ -82,9 +85,16 @@ TExportHTML = class
         procedure AddParaMarks(STL: Tstringlist);
         procedure ConvertTags(StL: TStringList);
         procedure MakeLocalLinks(const STL: TStringList; const CurrentTitle: string);
+        procedure MarkupCodeBlock(STL: Tstringlist);
         procedure MarkUpHeading(STL: Tstringlist);
 		//procedure SayDebug(st: string; Always: boolean=false);
+
+                                { Passed FFName of a note,  loads into STL, Normalises, remove header and footer
+                                Converts tags, marks up heading (in line 0), adds Para marks and header. The
+                                first note through gets OutFileName as filename, remainder are generated from
+                                their own title. }
         function GetHTMLcontent(InFFN: string; STL: TStringList): boolean;
+        procedure MarkupLists(STL: Tstringlist);
 
 
     public
@@ -97,6 +107,9 @@ TExportHTML = class
                         // Public : Accepts a file name (just ID, no path, no extension) of a
                         // note, will export it and any other notes, in the same dir that it
                         // appears to be linked to. Returns false on error.
+
+        Title : string; // Set in MarkUpHeading() to a plain text title.
+
         function ExportFile(InFile: string): boolean;
         constructor Create();
 
@@ -125,6 +138,19 @@ var
             '<list><list-item dir="ltr">','<li>',  '</list-item></list>','</li>',
             '<list-item dir="ltr">','<li>',  '</list-item>','</li>'
             );
+    // Plain test Title between 1 + Title + 2 + Title + 3 + Title + 4 + '<h1>Title</h1>'Content .....
+    CSSHeader1 : string = '<html><head><META http-equiv="Content-Type" content="text/html; charset=utf-8"><title>';
+    CSSHeader2 : string = '</title><style type="text/css">'#10 + 'body { font-family:''FreeSans''; }'#10
+        + 'h1 { font-size: xx-large;'#10 + '  font-weight: bold;'#10 + '  border-bottom: 1px solid black; }'#10
+        {$ifndef TOMBOYCSS} + 'code {white-space: pre-wrap;}'#10 + 'li {margin-top: 7px;}'#10 {$endif}
+        + 'div.note {'#10 + '  position: relative;'#10 + '  display: block;'#10 + '  padding: 5pt;'#10
+        + '  margin: 5pt;'#10 + '  white-space: -moz-pre-wrap; /* Mozilla */'#10 + '  white-space: -pre-wrap;     /* Opera 4 - 6 */'#10
+        + '  white-space: -o-pre-wrap;   /* Opera 7 */'#10
+        {$ifdef TOMBOYCSS}+ '  white-space: pre-wrap;      /* CSS3 */'#10 {$endif}
+        + '  word-wrap: break-word;      /* IE 5.5+ */ }'#10 + '</style></head><body><div class="note" id="';
+    CSSHeader3 : string = '"><a name="';
+    CSSHeader4 : string = '"></a>';
+
 
 { TNoteList }
 
@@ -331,19 +357,19 @@ end;
 procedure TExportHTML.MakeLocalLinks(const STL : TStringList; const CurrentTitle : string);
 var
     LineNo : integer = 0;
-    Title, St  :  string;
+    TheTitle, St  :  string;
 begin
     while LineNo < STL.Count do begin
         St := STL[LineNo];
         NoteList.StartTitleSearch;
-        while NoteList.FindNextTitle(Title) do begin
-            if Title = CurrentTitle then continue;
+        while NoteList.FindNextTitle(TheTitle) do begin
+            if TheTitle = CurrentTitle then continue;
             if pos(lowercase(Title), lowercase(St)) > 0 then begin
-                St := St.Replace(Title, '<a href="' + lowercase(TB_MakeFileName(Title))+'.html' + '">'
-                            + Title + '</a>', [rfReplaceAll, rfIgnoreCase]);
+                St := St.Replace(TheTitle, '<a href="' + lowercase(TB_MakeFileName(TheTitle))+'.html' + '">'
+                            + TheTitle + '</a>', [rfReplaceAll, rfIgnoreCase]);
                 StL.Delete(LineNo);
                 StL.Insert(LineNo, St);
-                NoteList.SetRequired(Title);
+                NoteList.SetRequired(TheTitle);
             end;
         end;
         inc(LineNo);
@@ -355,10 +381,17 @@ var
     St : string;
 begin
     if STL.Count < 1 then exit;
-    St := '<h1>' + STL[0] + '</h1>';
+    St := STL[0];
+    {$ifndef TOMBOYCSS}
+    St := St.Replace('<underline>', '');   // no flags needed, it only appears once
+    St := St.Replace('</underline>', '');
+    Title := St;
+    {$endif}
+    St := '<h1>' + St + '</h1>';
     StL.Delete(0);
     STL.Insert(0, St);
 end;
+
 
 function TExportHTML.GetHTMLcontent(InFFN : string; STL : TStringList): boolean;
 var
@@ -380,7 +413,11 @@ begin
         end;
         ConvertTags(StL);
         MarkUpHeading(STL);
+        MarkupLists(STL);
+        {$ifndef TOMBOYCSS}
         AddParaMarks(STL);
+        MarkupCodeBlock(STL);
+        {$endif}
         AddHeaderFooter(STL);
         if OutFileName = '' then
             if FollowLinks then
@@ -405,11 +442,21 @@ procedure TExportHTML.AddParaMarks(STL : Tstringlist);
 var
     i : integer = 0;
     TempSt, FirstTag : string;
+
+    function ExcludedTag() : boolean;  // These do not get an auto <p>.</p> wrap
+    begin
+        result := false;
+        case FirstTag of
+            '<h1>', '<h2>', '<h3>', '<ul>', '<li>', '<cod' : exit(true);
+        end;
+    end;
+
 begin
     while I < STL.Count do begin
         TempSt := STL[i];
         FirstTag := copy(TempSt, 1, 4);
-        if not ((FirstTag = '<h2>') or (FirstTag = '<h3>') or (FirstTag = '<h1>')) then begin
+        //if not ((FirstTag = '<h2>') or (FirstTag = '<h3>') or (FirstTag = '<h1>')) then begin
+        if not ExcludedTag then begin
             TempSt := '<p>' + TempSt + '</p>';
             StL.Delete(i);
             STL.Insert(i, TempSt);
@@ -418,11 +465,90 @@ begin
     end;
 end;
 
+{ At this stage, list items have their <li>stuff</li> but we need to add <ul>block</ul>}
+procedure TExportHTML.MarkupLists(STL : Tstringlist);
+var
+    i : integer = 0;
+    InList : Boolean = false;
+    TempSt, FirstTag : string;
+
+    function IsListItem(St : string):boolean;      // True if passed st looks like a list item, may have leading whitespace
+    var
+        Index : integer = 0;
+    begin
+        Result := False;
+        while Index < (St.Length) do begin         // no point in checking if we have less than necessary content left
+            inc(index);
+            if St[Index] = ' ' then continue;      // skip over any whitespace
+            exit(copy(ST, Index, 4) = '<li>');
+        end;
+    end;
+
+begin
+    while I < STL.Count do begin
+        //if copy(STL[i], 1, 4) = '<li>' then begin           // Its a list item
+        if IsListItem(STL[i]) then begin
+            TempSt := STL[i];
+            while TempSt[1] = ' ' do delete(TempSt, 1, 1); // We know it has something after the whitespace
+            StL.Delete(i);
+            if not InList then begin
+                STL.Insert(i, '<ul>' + TempSt);
+                InList := True
+            end else STL.Insert(i, TempSt);
+        end else
+            if InList then begin                            // its after a block of lists
+                TempSt := STL[i];
+                StL.Delete(i);
+                STL.Insert(i, '</ul>' + TempSt);            // OK, thats on the next line, how bad is it ?
+                InList := False
+            end;
+        inc(i);
+    end;
+end;
+
+
+{ At this stage, list items have their <li>stuff</li> but we need to add <ul>block</ul>}
+procedure TExportHTML.MarkupCodeBlock(STL : Tstringlist);
+var
+    i : integer = 0;
+    InList : Boolean = false;
+    TempSt, FirstTag : string;
+
+begin
+    while I < STL.Count do begin
+        if copy(STL[i], 1, 6) = '<code>' then begin         // Its a code item
+            TempSt := STL[i];
+             StL.Delete(i);
+            if not InList then begin                        // first code line of a block
+
+                TempSt := TempSt.Replace('</code>', '');
+                STL.Insert(i, '<p>' + TempSt);
+                InList := True
+            end else begin                                  // an intermediate code line
+                TempSt := TempSt.Replace('<code>', '');
+                TempSt := TempSt.Replace('</code>', '');
+                STL.Insert(i, TempSt);                      // remove all code tags, we may need re-add last one
+            end;
+        end else
+            if InList then begin                            // its fist line after a block of code
+                TempSt := STL[i];
+                StL.Delete(i);
+                STL.Insert(i, '</code></p>' + TempSt);      // OK, thats on the next line, how bad is that ?
+                InList := False
+            end;
+        inc(i);
+    end;
+end;
+
+
+
+
 procedure TExportHTML.AddHeaderFooter(STL : Tstringlist);
 begin
-    STL.Insert(0, '<body>');
+{    STL.Insert(0, '<body>');
     STL.Insert(0, '<html>');
-    STL.Insert(0, '<!DOCTYPE>');
+    STL.Insert(0, '<!DOCTYPE>');    }
+    Stl.Insert(0, CSSHeader1 + Title + CSSHeader2 + Title + CSSHeader3 + Title + CSSHeader4) ;
     StL.Add('</body>');
     StL.Add('</html>');
 end;

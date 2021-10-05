@@ -51,7 +51,7 @@ unit tb_utils;
 interface
 
 uses
-        Classes, SysUtils{, KMemo};
+        Classes, SysUtils  (* {$ifndef TESTRIG}, KMemo{$endif} *);
 
                         // True if looks like an ID, 36 char and dash as #9
 function IDLooksOK(const ID : string) : boolean;
@@ -95,22 +95,24 @@ function GetTitleFromFFN(FFN: string; Munge : boolean{; out LenTitle : integer})
                         // Maybe tolerant of gnote format.
 procedure RemoveNoteMetaData(STL : TStringList);
 
-procedure SayDebugSafe(st: string);
+function SayDebugSafe(st: string) : boolean;
 
+// Escapes any double inverted commas and backslashs it finds in passed string.
+function EscapeJSON(St : string) : string;
 
 // These are constants that refer to Bullet Levels, we map the KMemo names here.
 // Using them requires that we 'use' kmemo here. If not use'd, will still compile.
 // Each one MUST resolve to a different value in KMemo, do not overload.
 
-{$if declared(pnuArrowBullets)}
+{$if declared(pnuCircleBullets)}      // Defined in KMemo in later versions (mid to late 2021)
 const
-  BulletOne   = pnuArrowBullets;
+  BulletOne   = pnuTriangleBullets;
   BulletTwo   = pnuBullets;
-  BulletThree = pnuSquareBullets;
-  BulletFour  = pnuLetterLo;
-  BulletFive  = pnuRomanLo;
-  BulletSix   = pnuLetterHi;
-  BulletSeven = pnuRomanHi;
+  BulletThree = pnuCircleBullets;
+  BulletFour  = pnuArrowOneBullets;
+  BulletFive  = pnuArrowTwoBullets;
+  BulletSix   = pnuLetterlo;
+  BulletSeven = pnuRomanLo;
   BulletEight = pnuArabic;
   // BulletNine  = pnuArabic;       // Messes with case statements, 8 is our limit !
 {$endif}
@@ -121,6 +123,14 @@ uses dateutils, {$IFDEF LCL}LazLogger, {$ENDIF} {$ifdef LINUX} Unix, {$endif}   
         laz2_DOM, laz2_XMLRead;
 
 const ValueMicroSecond=0.000000000011574074;            // ie double(1) / double(24*60*60*1000*1000);
+
+
+// Escapes any double inverted commas and backslashs it finds in passed string.
+function EscapeJSON(St : string) : string;
+begin
+      Result := St.Replace('\', '\\', [rfReplaceAll] );
+      Result := Result.Replace('"', '\"', [rfReplaceAll] );
+end;
 
 function IDLooksOK(const ID : string) : boolean;
   begin
@@ -363,9 +373,10 @@ begin
 	result := -1;
 end;
 
-procedure SayDebugSafe(st: string);
+function SayDebugSafe(st: string) : boolean;
 begin
     {$ifdef LCL}Debugln{$else}writeln{$endif}(St);
+    result := false;
 end;
 
 function GetTitleFromFFN(FFN: string; Munge : boolean{; out LenTitle : integer}): string;

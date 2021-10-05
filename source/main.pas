@@ -149,6 +149,8 @@ const Version_string  = {$I %TTools_VER};
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
     Ready := False;
+    left := (screen.Width div 2) - (width div 2);
+    Top := (screen.height div 2) - (height div 2);
     LabelVersion.Caption := Version_string;
     LabelErrorMessage.Caption := '';
     RSLFiles := nil;

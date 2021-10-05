@@ -17,6 +17,9 @@ unit syncutils;
     2019/07/19  Added ability to escape ' and " selectivly, attributes ONLY
     2020/04/24  Make debugln use dependent on LCL, now can be FPC only unit
     2020/08/01  Can now handle 'Zulu' datestrs, ones without timezone, with 'Z'
+    2021/08/31  Added sha to TNoteInfo
+    2021/09/12  Taught GetNoteLastChangeSt() to also get create date.
+    2021/09/27  Added function to return text name for TSyncTransport Type
 }
 {$mode objfpc}{$H+}
 
@@ -26,9 +29,10 @@ uses
     Classes, SysUtils, dateutils, LazLogger;
 
 type TSyncTransport=(SyncFile,  // Sync to locally available dir, things like smb: mount, google drive etc
-		        SyncNextCloud,  // Sync to NextCloud using Nextcloud Notes
+                SyncGitHub,     // sends markdown notes to/from github.
                 SyncAndroid,    // Simple one to one Android Device
                 SyncFileAndroid);   // Android sync using mounted file system
+                //SyncNextCloud,  // Sync to NextCloud using Nextcloud Notes
 
 type TSyncAction=(SyUnset,      // initial state, should not be like this at end.
                 SyNothing,      // This note, previously sync'ed has not changed.
@@ -78,6 +82,7 @@ type
         SID : longint;              // Short ID, clumbsy alt to the GUID/UUID we should use
         Action : TSyncAction;
         Title : ANSIString;
+        Sha : ANSIString;           // The sha of an uploaded note. Stored in local manifest, Github mode.
     end;
 
  type                                 { ---------- TNoteInfoList ---------}
@@ -96,6 +101,7 @@ type
         function Add(ANote : PNoteInfo) : integer;
         function FindID(const ID : ANSIString) : PNoteInfo;
         function ActionName(Act : TSyncAction) : string;
+        procedure DumpList(const Wherefrom : string);
         property Items[Index: integer]: PNoteInfo read Get; default;
     end;
 
@@ -116,6 +122,7 @@ type
 
  type    TProceedFunction = function(const ClashRec : TClashRecord): TSyncAction of object;
 
+ type    TProgressProcedure = procedure(const St : string) of object;
 
     { takes a path to the server and a rev number and returns a Tomboy style sync dir.
       or, if NoteID (without '.note') is supplied, a FullNoteName   }
@@ -129,21 +136,8 @@ function UsingRightRevisionPath(ServerPath : string; Rev : integer) : boolean;
    // Takes a normal Tomboy DateTime string and converts it to UTC, ie zero offset
 function ConvertDateStrAbsolute(const DateStr : string) : string;
 
-                // A save, error checking method to convert Tomboy's ISO8601 33 char date string
-//function SafeGetUTCfromStr(const DateStr : string; out DateTime : TDateTime; out ErrorMsg : string) : boolean;
-
-                // Ret GMT from tomboy date string, 0.0 on error or unlikely date.
-// function GetGMTFromStr(const DateStr: ANSIString): TDateTime;
-
-                // Ret a tomboy date string for now.
-//function GetLocalTime: ANSIstring;
-
         // Returns the LCD string, '' and setting Error to other than '' if something wrong
-function GetNoteLastChangeSt(const FullFileName : string; out Error : string) : string;
-
-        // returns false if GUID does not look OK
-function IDLooksOK(const ID : string) : boolean;
-
+function GetNoteLastChangeSt(const FullFileName : string; out Error : string; CDateInstead : boolean = false) : string;
 
 
                         { ret true if it really has removed the indicated file. Has proved
@@ -151,7 +145,7 @@ function IDLooksOK(const ID : string) : boolean;
                           if it has initial problems, returns F and sets ErrorMsg if fails.}
 function SafeWindowsDelete(const FullFileName : string; var ErrorMsg : string) : boolean;
 
-
+function SyncTransportName(TheType : TSyncTransport) : string;
 
 RESOURCESTRING
   rsNewUploads = 'New Uploads    ';
@@ -161,7 +155,7 @@ RESOURCESTRING
   rsRemoteDeletes = 'Remote Deletes ';
   rsClashes = 'Clashes        ';
   rsDoNothing = 'Do Nothing     ';
-  rsSyncERRORS = 'ERRORS (see consol log) ';
+  rsSyncERRORS = 'ERRORS (see console log) ';
 
   rsNoNotesNeededSync = 'No notes needed syncing. You need to write more.';
   rsNotesWereDealt = ' notes were dealt with.';
@@ -174,6 +168,16 @@ implementation
 
 uses laz2_DOM, laz2_XMLRead, LazFileUtils, tb_utils;
 
+function SyncTransportName(TheType : TSyncTransport) : string;
+begin
+    Result := '';
+    case TheType of
+        SyncFile :        result := 'SyncFile';
+        SyncGitHub  :     result := 'SyncGithub';
+        SyncAndroid :     result := 'SyncAndroid';
+        SyncFileAndroid : result := 'SyncFileAndroid';
+    end;
+end;
 
 function SafeWindowsDelete(const FullFileName : string; var ErrorMsg : string) : boolean;
 begin
@@ -201,69 +205,9 @@ begin
     Result := true;
 end;
 
-function RemoveBadXMLCharacters(const InStr : ANSIString; DoQuotes : boolean = false) : ANSIString;
-// Don't use UTF8 versions of Copy() and Length(), we are working bytes !
-// It appears that Tomboy only processes <, > and & , we also process single and double quote.
-// http://xml.silmaril.ie/specials.html
-var
-   //Res : ANSIString;
-   Index : longint = 1;
-   Start : longint = 1;
-begin
-    Result := '';
-   while Index <= length(InStr) do begin
-   		if InStr[Index] = '<' then begin
-             Result := Result + Copy(InStr, Start, Index - Start);
-             Result := Result + '&lt;';
-             inc(Index);
-             Start := Index;
-			 continue;
-		end;
-  		if InStr[Index] = '>' then begin
-             Result := Result + Copy(InStr, Start, Index - Start);
-             Result := Result + '&gt;';
-             inc(Index);
-             Start := Index;
-			 continue;
-		end;
-  		if InStr[Index] = '&' then begin
-             // debugln('Start=' + inttostr(Start) + ' Index=' + inttostr(Index));
-             Result := Result + Copy(InStr, Start, Index - Start);
-             Result := Result + '&amp;';
-             inc(Index);
-             Start := Index;
-			 continue;
-		end;
-        if DoQuotes then begin
-      		if InStr[Index] = '''' then begin                // Ahhhh how to escape a single quote ????
-                 Result := Result + Copy(InStr, Start, Index - Start);
-                 Result := Result + '&apos;';
-                 inc(Index);
-                 Start := Index;
-    			 continue;
-    		end;
-            if InStr[Index] = '"' then begin
-                 Result := Result + Copy(InStr, Start, Index - Start);
-                 Result := Result + '&quot;';
-                 inc(Index);
-                 Start := Index;
-                 continue;
-		    end;
-        end;
 
-        inc(Index);
-   end;
-   Result := Result + Copy(InStr, Start, Index - Start);
-end;
 
-function IDLooksOK(const ID : string) : boolean;
-begin
-    if length(ID) <> 36 then exit(false);
-    if pos('-', ID) <> 9 then exit(false);
-    result := True;
-end;
-
-function GetNoteLastChangeSt(const FullFileName : string; out Error : string) : string;
+function GetNoteLastChangeSt(const FullFileName : string; out Error : string; CDateInstead : boolean = false) : string;
 var
 	Doc : TXMLDocument;
 	Node : TDOMNode;
@@ -275,7 +219,9 @@ begin
 	end;
 	try
 		ReadXMLFile(Doc, FullFileName);
-		Node := Doc.DocumentElement.FindNode('last-change-date');
+        if CDateInstead then
+            Node := Doc.DocumentElement.FindNode('create-date')
+		else Node := Doc.DocumentElement.FindNode('last-change-date');
         Result := Node.FirstChild.NodeValue;
 	finally
         Doc.free;		// TODO - xml errors are NOT caught in calling process
@@ -323,6 +269,31 @@ begin
         SyAllOldest : Result := ' AllOldest ';
     end;
     while length(result) < 15 do Result := Result + ' ';
+end;
+
+procedure TNoteInfoList.DumpList(const Wherefrom: string);
+var
+    P : PNoteInfo;
+    St : string;
+begin
+    debugln('');
+    debugln('----------- List MetaData ' + Wherefrom + ' -------------');
+    for P in self do begin
+        St := ' ' + inttostr(P^.Rev);
+        while length(St) < 5 do St := St + ' ';
+        debugln('ID=' + copy(P^.ID, 1, 9)  + St + ActionName(P^.Action)
+                + '   ' + P^.Title + '  sha=' + copy(P^.Sha, 1, 9));
+        debugln('          CDate=' + P^.CreateDate + ' LCDate=' + P^.LastChange);
+    end;
+   debugln('-------------------------------------------------------');
+(*    for I := 0 to Count -1 do begin
+        St := ' ' + inttostr(Items[i]^.Rev);
+        while length(St) < 5 do St := St + ' ';
+        // St := Meta.ActionName(Meta.Items[i]^.Action);
+        debugln('ID=' + copy(Items[I]^.ID, 1, 9)  + St + ActionName(Items[i]^.Action)
+                + '   ' + Items[I]^.Title + '  sha=' + copy(Items[I]^.Sha, 1, 9));
+        debugln('          CDate=' + Items[i]^.CreateDate + ' LCDate=' + Items[i]^.LastChange);
+    end;    *)
 end;
 
 destructor TNoteInfoList.Destroy;
