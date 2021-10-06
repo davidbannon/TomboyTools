@@ -159,7 +159,7 @@ begin
     PageControl1.TabIndex := 0;
     // Some initial defaults
     {$ifdef WINDOWS}
-    LabelDestination.Caption := GetEnvironmentVariable('HOMEPATH');   // DoDo : Test This !!!!!
+    LabelDestination.Caption := GetEnvironmentVariable('HOMEPATH');
     {$else}
     LabelDestination.Caption := GetEnvironmentVariable('HOME');
     {$endif}

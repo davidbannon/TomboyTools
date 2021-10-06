@@ -22,6 +22,7 @@ unit exporthtml;
     HISTORY
     2021-07-27  Started up.
     2021/10/04  Added Tomboy's CSS in response to user request, seems to have a lot of whitespace ....
+    2021/10/04  Tweaked the CSS just a little, cleaner HTML and nicer spacing ....
 
 }
 
@@ -411,12 +412,17 @@ begin
             NoteList.SetExported(NoteList.GetTitleForFFN(InFFN));
             NoteList.DumpList;
         end;
+        Stl.SaveToFile('DEBUG-A-beforeConvert.txt');
         ConvertTags(StL);
+        Stl.SaveToFile('DEBUG-B-afterConvert.txt');
         MarkUpHeading(STL);
         MarkupLists(STL);
         {$ifndef TOMBOYCSS}
+        Stl.SaveToFile('DEBUG-C-beforePara.txt');
         AddParaMarks(STL);
+        Stl.SaveToFile('DEBUG-E-afterPara.txt');
         MarkupCodeBlock(STL);
+        Stl.SaveToFile('DEBUG-F-afterCode.txt');
         {$endif}
         AddHeaderFooter(STL);
         if OutFileName = '' then
@@ -549,6 +555,7 @@ begin
     STL.Insert(0, '<html>');
     STL.Insert(0, '<!DOCTYPE>');    }
     Stl.Insert(0, CSSHeader1 + Title + CSSHeader2 + Title + CSSHeader3 + Title + CSSHeader4) ;
+    StL.Add('</div>');
     StL.Add('</body>');
     StL.Add('</html>');
 end;
