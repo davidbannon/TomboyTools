@@ -23,7 +23,7 @@ unit exporthtml;
     2021-07-27  Started up.
     2021/10/04  Added Tomboy's CSS in response to user request, seems to have a lot of whitespace ....
     2021/10/04  Tweaked the CSS just a little, cleaner HTML and nicer spacing ....
-
+    2021/10/07  All bullets single level, display links correctly
 }
 
 {x$define TOMBOYCSS}
@@ -85,6 +85,11 @@ TExportHTML = class
         procedure AddHeaderFooter(STL: Tstringlist);
         procedure AddParaMarks(STL: Tstringlist);
         procedure ConvertTags(StL: TStringList);
+                                // I don't seem to be able to find a way to display multilevel bullets with
+                                // html or CSS, so, convert to flat.
+        procedure KillMultilevelBullets(STL: Tstringlist);
+                                // Scans over the list, looking for any text that matches another note's title
+                                // If it finds one, it marks the text as a html link and advises NoteList.
         procedure MakeLocalLinks(const STL: TStringList; const CurrentTitle: string);
         procedure MarkupCodeBlock(STL: Tstringlist);
         procedure MarkUpHeading(STL: Tstringlist);
@@ -96,6 +101,7 @@ TExportHTML = class
                                 their own title. }
         function GetHTMLcontent(InFFN: string; STL: TStringList): boolean;
         procedure MarkupLists(STL: Tstringlist);
+        procedure WrapExtLinks(STL: Tstringlist);
 
 
     public
@@ -121,7 +127,7 @@ end;
 
 implementation
 
-uses tb_utils, LazFileUtils{$ifdef LCL}, lazlogger {$endif}, laz2_DOM, laz2_XMLRead, notenormal, FileUtil;
+uses tb_utils, tt_utils, LazFileUtils{$ifdef LCL}, lazlogger {$endif}, laz2_DOM, laz2_XMLRead, notenormal, FileUtil;
 
 const TagMax = 40;           // We must not access TagList[TagMax] !
 
@@ -353,24 +359,24 @@ begin
     end;
 end;
 
-// Scans over the list, looking for any text that matches another note's title
-// If it finds one, it marks the text as a html link and advises NoteList.
+
 procedure TExportHTML.MakeLocalLinks(const STL : TStringList; const CurrentTitle : string);
 var
     LineNo : integer = 0;
-    TheTitle, St  :  string;
+    ATitle, St  :  string;
 begin
     while LineNo < STL.Count do begin
-        St := STL[LineNo];
+        St := STL[LineNo];                                // each line of the note, one by one
         NoteList.StartTitleSearch;
-        while NoteList.FindNextTitle(TheTitle) do begin
-            if TheTitle = CurrentTitle then continue;
-            if pos(lowercase(Title), lowercase(St)) > 0 then begin
-                St := St.Replace(TheTitle, '<a href="' + lowercase(TB_MakeFileName(TheTitle))+'.html' + '">'
-                            + TheTitle + '</a>', [rfReplaceAll, rfIgnoreCase]);
+        while NoteList.FindNextTitle(ATitle) do begin   // ATitle is each Title for NoteList, all notes in directory.
+            if ATitle = CurrentTitle then continue;     // skip ourself
+            // look for the ATitle from NoteList in this line of the note.
+            if pos(lowercase(ATitle), lowercase(St)) > 0 then begin              // Title or TheTitle ?
+                St := St.Replace(ATitle, '<a href="' + lowercase(TB_MakeFileName(ATitle))+'.html' + '">'
+                            + ATitle + '</a>', [rfReplaceAll, rfIgnoreCase]);
                 StL.Delete(LineNo);
                 StL.Insert(LineNo, St);
-                NoteList.SetRequired(TheTitle);
+                NoteList.SetRequired(ATitle);
             end;
         end;
         inc(LineNo);
@@ -386,13 +392,102 @@ begin
     {$ifndef TOMBOYCSS}
     St := St.Replace('<underline>', '');   // no flags needed, it only appears once
     St := St.Replace('</underline>', '');
-    Title := St;
     {$endif}
+    Title := St;
     St := '<h1>' + St + '</h1>';
     StL.Delete(0);
     STL.Insert(0, St);
 end;
 
+
+procedure TExportHTML.KillMultilevelBullets(STL : Tstringlist);
+var
+    St : string;
+    i : integer = 0;
+
+    function WasDuplicate(Tag : string) : boolean;
+    begin
+        Result := False;
+        if Pos(Tag + Tag, St) > 0 then begin
+            St := St.Replace(Tag+Tag, Tag);
+            exit(True);
+        end;
+    end;
+
+begin
+    if STL.Count < 1 then exit;
+    while i < STl.Count do begin
+        St := STL[i];
+        while WasDuplicate('<li>') do;
+        while WasDuplicate('</li>') do;
+        if St <> STL[i] then begin
+            StL.Delete(i);
+            STL.Insert(i, St);
+        end;
+        inc(i);
+    end;
+end;
+
+{ Finds and external http URLs and converts them to proper links. MUST be run before
+we insert all the paragraph markers. }
+procedure TExportHTML.WrapExtLinks(STL : Tstringlist);
+var
+    St : string;
+    Start : integer =0;
+    Len : integer = 0;
+    i : integer = 0;
+    HTTP : integer;
+
+    function ValidWebLength() : integer;
+    var
+        Offset : integer;
+    begin
+        result := 0;
+        if (Start > 1) and (St[Start-1] <> ' ')  then exit;             // no leading whitespace
+        while St[Start+Result] <> '.' do begin
+            if Start + Result > St.Length then exit(0);               // beyond St before a dot
+            if St[Start + Result] in [' ', ',', #10, #13] then exit(0);   // hit whitespace before a dot
+            inc(Result);
+        end;                                                              // Found a dot.
+        inc(Result);
+        if (St[Start+Result] in [' ', ',', #10, #13]) then exit(0);       // the dot is at the end !
+
+        while true do begin
+            if ((Start + Result) > St.Length) or
+                (St[Start+Result] in [' ', ',', #10, #13]) then break;
+            inc(Result);
+        end;
+        if ST[Start+Result-1] = '.' then
+            dec(Result);
+        //debugln('TExportHTML.WrapExtLinks - found a URL, len=' + inttostr(Result) + copy(St, Start, Result));
+    end;
+
+
+begin
+    while i < Stl.count do begin
+        St := STL[i];
+        repeat
+            HTTP := St.IndexOf('http://', Start);
+            if HTTP = -1 then
+                HTTP := St.IndexOf('https://', Start);
+            if HTTP > -1 then
+                Start := HTTP+1
+            else Start := 0;
+            if Start <> 0  then begin    // OK, Start now points to start of a possible link.
+                //debugln('TExportHTML.WrapExtLinks testing ' + St);
+                Len := ValidWebLength();
+                if Len > 9 then begin                                         // just a check that the link has some URL
+                    insert('</a>', St, Start+Len);
+                    Insert('<a href="' + copy(St, Start, Len) + '">', St, Start);
+                    inc(Start, 15+Len);                                       // Thats what we just added to st
+                end;
+            end;
+        until Start = 0;
+        StL.Delete(i);
+        STL.Insert(i, St);
+        inc(i);
+    end;
+end;
 
 function TExportHTML.GetHTMLcontent(InFFN : string; STL : TStringList): boolean;
 var
@@ -410,20 +505,21 @@ begin
         if FollowLinks then begin
             MakeLocalLinks(STL, NoteList.GetTitleForFFN(InFFN));
             NoteList.SetExported(NoteList.GetTitleForFFN(InFFN));
-            NoteList.DumpList;
+            //NoteList.DumpList;
         end;
-        Stl.SaveToFile('DEBUG-A-beforeConvert.txt');
+        // Stl.SaveToFile('DEBUG-A-beforeConvert.txt');
         ConvertTags(StL);
-        Stl.SaveToFile('DEBUG-B-afterConvert.txt');
+        // Stl.SaveToFile('DEBUG-B-afterConvert.txt');
         MarkUpHeading(STL);
         MarkupLists(STL);
+        WrapExtLinks(STL);
         {$ifndef TOMBOYCSS}
-        Stl.SaveToFile('DEBUG-C-beforePara.txt');
         AddParaMarks(STL);
-        Stl.SaveToFile('DEBUG-E-afterPara.txt');
         MarkupCodeBlock(STL);
-        Stl.SaveToFile('DEBUG-F-afterCode.txt');
+        // Stl.SaveToFile('DEBUG-F-afterCode.txt');
         {$endif}
+        KillMultilevelBullets(STL);
+
         AddHeaderFooter(STL);
         if OutFileName = '' then
             if FollowLinks then
@@ -442,6 +538,7 @@ begin
         else StL.SaveToFile(OutFileName);
         Result := True;
         OutFileName := '';      // That indicates we have done first one, any more need a name generated.
+        UpdateStatusBar('Exported as HTML ' + Title);
 end;
 
 procedure TExportHTML.AddParaMarks(STL : Tstringlist);
@@ -476,7 +573,7 @@ procedure TExportHTML.MarkupLists(STL : Tstringlist);
 var
     i : integer = 0;
     InList : Boolean = false;
-    TempSt, FirstTag : string;
+    TempSt : string;
 
     function IsListItem(St : string):boolean;      // True if passed st looks like a list item, may have leading whitespace
     var
@@ -518,7 +615,7 @@ procedure TExportHTML.MarkupCodeBlock(STL : Tstringlist);
 var
     i : integer = 0;
     InList : Boolean = false;
-    TempSt, FirstTag : string;
+    TempSt : string;
 
 begin
     while I < STL.Count do begin
