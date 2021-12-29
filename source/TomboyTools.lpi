@@ -54,6 +54,12 @@
               </Win32>
             </Options>
           </Linking>
+          <Other>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
+          </Other>
         </CompilerOptions>
       </Item2>
       <Item3 Name="ReleaseLin64">
@@ -90,6 +96,10 @@
             <CompilerMessages>
               <IgnoredMessages idx6058="True"/>
             </CompilerMessages>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item3>
@@ -127,6 +137,10 @@
             <CompilerMessages>
               <IgnoredMessages idx6058="True"/>
             </CompilerMessages>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item4>
@@ -165,6 +179,10 @@
             <CompilerMessages>
               <IgnoredMessages idx6058="True"/>
             </CompilerMessages>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item5>
@@ -204,6 +222,10 @@
             <CompilerMessages>
               <IgnoredMessages idx6058="True"/>
             </CompilerMessages>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item6>
@@ -242,6 +264,10 @@
             <CompilerMessages>
               <IgnoredMessages idx6058="True"/>
             </CompilerMessages>
+            <CustomOptions Value="-dTESTRIG"/>
+            <OtherDefines Count="1">
+              <Define0 Value="TESTRIG"/>
+            </OtherDefines>
           </Other>
         </CompilerOptions>
       </Item7>
@@ -333,6 +359,12 @@
         </Win32>
       </Options>
     </Linking>
+    <Other>
+      <CustomOptions Value="-dTESTRIG"/>
+      <OtherDefines Count="1">
+        <Define0 Value="TESTRIG"/>
+      </OtherDefines>
+    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">

@@ -17,7 +17,7 @@ unit notenormal;
 
   HISTORY :
     2021/08/19  Bug in RemoveRedundentTags that sometimes ate character after tag pair
-    2021/10/21  Added code to convert blocks of monospace to to now have each para wrapped.
+    2021/09/21  Added code to convert blocks of monospace to to now have each para wrapped.
 
 }
 
@@ -210,7 +210,7 @@ end;
 
 function TNoteNormaliser.TidyMonospace(StL : TStringList) : boolean;
 var
-    Start, Finish, i, OffSet : integer;
+    Start, i, OffSet : integer;
     St : string;
 
     function ConvertMono : boolean;
@@ -237,7 +237,6 @@ begin
         if (copy(STL[i], 1, 11) = '<monospace>')
         and (pos('</monospace>', Stl[i]) < 1) then begin
             Start := i;
-            Finish := -1;
             inc(i);
             continue;
         end;

@@ -163,6 +163,7 @@ RESOURCESTRING
   rsNotRecommend = 'Generally not recommended.';
   rsNextBitSlow = 'Next bit can be a bit slow, please wait';
 
+
             { -------------- implementation ---------------}
 implementation
 
@@ -222,9 +223,13 @@ begin
         if CDateInstead then
             Node := Doc.DocumentElement.FindNode('create-date')
 		else Node := Doc.DocumentElement.FindNode('last-change-date');
+        if Node = nil then begin
+            Error := 'ERROR - cannot find date in ' +  FullFileName;
+            exit(' ');
+        end;
         Result := Node.FirstChild.NodeValue;
 	finally
-        Doc.free;		// TODO - xml errors are NOT caught in calling process
+        Doc.free;
 	end;
 end;
 
