@@ -72,7 +72,7 @@ implementation
 
 { UTB2md }
 
-uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, TB_utils, tt_utils,
+uses LCLProc, laz2_DOM, laz2_XMLRead, LazFileUtils, TB_utils {, tt_utils},
         commonmark, exporthtml, export2man;
 
 
@@ -193,6 +193,7 @@ end;
 
 function TExportNote.ExportFile(ID: string): boolean;
 begin
+    Result := True;
     case OutFormat of
         'md', 'mark down', 'markdown', 'po file' : result := ExportMd(ID);
         'text', 'plain text', 'txt' : result := ExportText(ID);
@@ -205,7 +206,6 @@ begin
 	    end;
 	end;
     inc(NotesProcessed);
-    Result := True;
 end;
 
 (*
@@ -383,7 +383,10 @@ function TExportNote.ExportMan(ID : string): boolean;
 var
     Man : TExport2Man;
 begin
-    if not FileExists(NoteDir + ID + '.note') then exit(False);
+    if not FileExists(NoteDir + ID + '.note') then begin
+        ErrorMessage := 'ERROR - file not found : ' + NoteDir + ID + '.note';
+        exit(False);
+    end;
     //debugln('export ' + NoteDir + ID + '.note to ' + DestDir + TitleFromID(ID, True, LTitle) + '.md');
     result := true;
 {    if FileNameIsTitle then

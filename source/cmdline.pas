@@ -20,41 +20,10 @@ unit cmdline;
 
 -----------------------------------------------------------------
 
-Even Newer CLI Mode, if we have source and / or destination on the command line
-but no action, we will proceed to GUI using whatever of those settings we have.
-July 2021
+History
+    July 2021  Newer CLI Mode, allow -s and -d and still proceed to GUI
+    2021/12/30 Add ability to make man page from CLI, tidy help screens
 
-New CLI model, if there is any command line entries, we stay in CLI mode. An empty
-command line (after the command itself) will proceed to GUI mode.
-
-    -a --action=[note2md; note2txt; md2note; txt2note] - Required
-
-    -s --source=[dir or KEY]   -d --destination= [dir or KEY]
-
-    The default for the above is tomboy-ng's default on this system and the
-    current dir (depending on import / export direction).
-    Importing always requires a source dir, exporting always requires a
-    a destination. Also can use "TOMBOY" or "GNOTE" to use their local defaults.
-
-    -b --notebook="Notebook Name"   For export and import.
-    -n --note="Note Title"          For export only, don't use with -b
-    -f --file="File Name"           Without path, name of file to import.     // why do we deal with single notes ???
-    -t --title-line                 Use first line as title when importing
-
-    -h --help   Show help page.
-
-    Examples -
-    TomboyTools --action=note2md --destination=~/Desktop -b "My Notebook"
-    Will exports all notes in "My Notebook" from the tomboy-ng note repo
-    to the desktop in markdown format.
-
-    TomboyTools -a md2note -D Tomboy -s ~/Desktop -f myMDfile.md -l
-    Will import all the markdown files on my desktop to my Tomboy repo using
-    the first line as the title.
-
-    TomboyTools -a note2txt -n "Some Title"
-    Will export a note from the tomboy-ng repo called "Some Title" as text
-    amd place it in the current working directory.
 
 
     Note Title and File Names
@@ -94,16 +63,10 @@ uses
 
 type TToolMode = (
     ActNote2md, ActNote2txt, ActMd2note, ActTxt2note, ActGUI, ActExit,
+    ActNote2Man,    // make a man page from note based on special template
     ActNote2POT,    // convert note to a pot file for translation
     ActJustDir      // we have just source and or destination directories, go to gui
     );
-
-{   ModeNotSet,     // No mode setting command line offered, error
-    ModeTB2MD,      // Tomboy to Markdown
-    ModeTB2Text,    // Tomboy to plain text, line ending as per local
-    ModeCheckSync,  // Check the sync repo
-    ModeCheckNotes  // Check all notes in the note directory    }
-
 
                 // call this from project file, if true we don't need GUI
                 // It is, in a way, the MAIN function, it decides are we GUI or
@@ -121,22 +84,16 @@ begin
     debugln('');
     DebugLn('TomboyTools, a small set of tools for tomboy-ng (and Tomboy)');
     debugln('');
-    debugln('GUI Mode - With no command line options or with ');
-    debugln('just -s --source and / or -d -destination will start GUI');
-    debugln('Command Line Mode -');
-
-    debugln(' -a --action=[note2md; note2txt; md2note; txt2note, note2pot] - Required');
-    debugln(' -s --source=[dir or KEY]   -d --destination= [dir or KEY]');
-    debugln(' The default for the above is tomboy-ng''s default on this system and the');
-    debugln(' current dir (depending on import / export direction). Importing always');
-    debugln(' requires a source dir, exporting always requires a destination');
+    debugln('With no options or with -s and/or -d preset will start the GUI');
+    debugln('');
+    debugln('Default source for export or destination for import is tomboy-ng notes dir.');
+    debugln('Default destination of export or source for import is current directory.');
     debugln(' Also can use a KEY, "TOMBOY" or "GNOTE", to use their local defaults.');
-
+    debugln(' -a --action=[note2md; note2txt; md2note; txt2note, note2man] - Required');
+    debugln(' -s --source=[dir or KEY]   -d --destination=[dir or KEY]');
     debugln(' -b --notebook="Notebook Name"   For export and import.');
     debugln(' -n --note="Note Title"          For export only, don''t use with -b ');
-    debugln(' -f --file="File Name"           Without path, name of file to import.');
-    //debugln(' -l --line                       Use first line as title when importing.');
-
+    debugln(' -f --file="File Name"           Without path, name of file.');
     debugln(' -t --title-line   Retain filename, Note Title is first line of a file.');
     debugln(' -V --verbose      Tells us what its doing');
     debugln(' -e --examples     Print some example command lines');
@@ -148,25 +105,32 @@ end;
 procedure ShowExamples();
 begin
     debugln('Examples - ');
-    debugln(' TomboyTools --action=note2md --destination=~/Desktop -b "My Notebook"');
-    debugln(' Will exports all notes in "My Notebook" from the tomboy-ng note repo');
+    debugln('$> tomboytools --action=note2md --destination=~/Desktop -b "My Notebook"');
+    debugln(' Will export all notes in "My Notebook" from the tomboy-ng note repo');
     debugln(' to the desktop in markdown format.');
     debugln(' ');
-    debugln(' TomboyTools -a md2note -d TOMBOY -s ~/Desktop -f myMDfile.md -t');
+    debugln('$> tomboytools -a md2note -d TOMBOY -s ~/Desktop -f myMDfile.md -t');
     debugln(' Will import all the markdown files on my desktop to my Tomboy repo using');
     debugln(' the first line as the title.');
     debugln(' ');
-    debugln(' TomboyTools -a note2txt -n "Some Title"');
+    debugln('$> tomboytools -a note2txt -n "Some Title"');
     debugln(' Will export a note from the tomboy-ng repo called "Some Title" as text');
-    debugln(' amd place it in the current working directory.');
+    debugln(' and place it in the current working directory.');
     debugln(' ');
-    debugln(' TomboyTools -a txt2note -b "Special Notes"');
+    debugln('$> tomboytools -a txt2note -b "Special Notes"');
     debugln(' Will import all the text files in the current directory into tomboy-ng.');
     debugln(' The file names (without extension) will be used for the note titles.');
     debugln(' Notes will be put in Special Notes notebook which MUST exist.');
     debugln(' ');
-    debugln(' TomboyTools -s ./.  -d ./.');
-    debugln(' Will use the GUI with both source and destination set to current dir');
+    debugln('$> tomboytools -s ./.  -d ./.');
+    debugln(' Will use the GUI with both source and destination preset to current dir');
+    debugln(' ');
+    debugln('$> tomboytools  -a note2man  -f tomboy-ng-man.note');
+    debugln(' Will convert a note callled tomboy-ng-man.note from current dir to a');
+    debugln(' man page and save it in the current dir. It must have been prepared');
+    debugln(' using the special Man Page Template available from TomboyTools Github');
+
+
     debugln(' ');
 end;
 
@@ -218,7 +182,7 @@ begin
     if Mode = ActNote2POT then begin
         ExPot := TExportPOT.Create('tomboy-ng.note');
         if ExPot.ErrorString <> '' then
-            debugln('EXport tp POT ' + ExPot.ErrorString);
+            debugln('Export to POT ' + ExPot.ErrorString);
         ExPot.Free;
         exit;
     end;
@@ -233,15 +197,32 @@ begin
         Exporter.NoteDir := AppendPathDelim(SrcDir);
         Exporter.DestDir:= appendpathdelim(DestDir);
         // What format should they be executed in ?
-        if Mode = ActNote2Txt then
+        case Mode of
+            ActNote2Txt : Exporter.OutFormat := 'text';
+            ActNote2md  : Exporter.OutFormat := 'md';
+            ActNote2Man : Exporter.OutFormat := 'man';
+        end;
+        (*if Mode = ActNote2Txt then
                 Exporter.OutFormat := 'text'
-        else Exporter.OutFormat := 'md';
+        else Exporter.OutFormat := 'md';     *)
         if Application.HasOption('V', 'verbose') then begin
             debugln('Exporting from ' + SrcDir + ' to ' + DestDir);
             debugln('Notebook   : ' + Exporter.Notebook);
             debugln('Note Title : ' + Exporter.NoteTitle);
+            if Mode = ActNote2Man then
+                debugln('Note to become man : ' + Application.GetOptionValue('f', 'file'));
         end;
-        exporter.Execute;
+        if Mode = ActNote2Man then begin
+            if not (Application.HasOption('f', 'file') and
+                fileexists(SrcDir + Application.GetOptionValue('f', 'file'))) then begin
+                    debugln('ERROR - note2man requires a -f file.note');
+                    exit();
+            end;
+            Exporter.ExportOneFile(Application.GetOptionValue('f', 'file'))     // we MUST have -f filename set
+        end
+        else exporter.Execute;                 // Execute is always a bulk export
+        if Exporter.ErrorMessage <> '' then
+            Debugln('ERROR ' + Exporter.ErrorMessage);
 	finally
         Exporter.Free;
 	end;
@@ -260,6 +241,14 @@ begin
         showhelp();
         exit(ActExit);
 	end;
+(*    if Application.HasOption('a', 'action') and
+        (Application.GetOptionValue('a', 'action') = 'note2man')  then     // We must have a file passed if note2man
+            if not (Application.HasOption('f', 'file') and
+                fileexists(Application.GetOptionValue('f', 'file'))) then begin
+                    debugln('ERROR - note2man requires a -f file.note');
+                    showhelp();
+                    exit(ActExit);
+                end;                    *)
     if Application.HasOption('help') then begin
         showhelp();
         exit(ActExit);
@@ -282,6 +271,7 @@ begin
     case Action of
         'note2md'  : Result := ActNote2md;
         'note2txt' : Result := ActNote2txt;
+        'note2man' : Result := ActNote2Man;
         'md2note'  : Result := ActMd2note;
         'txt2note' : Result := ActTxt2note;
         'note2pot' : result := ActNote2POT;
@@ -346,7 +336,7 @@ begin
     if AppMode = ActGUI then exit(False);
     if AppMode = ActExit then exit(True);
     // OK, we are here to do stuff, lets do it !
-    if AppMode in [ActNote2md, ActNote2Txt, ActNote2POT] then
+    if AppMode in [ActNote2md, ActNote2Txt, ActNote2Man, ActNote2POT] then
         ExportSomeNotes(AppMode);
     if AppMode in [ActTxt2note, ActMd2Note] then
         ImportSomeFiles(AppMode);

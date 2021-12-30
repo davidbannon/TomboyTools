@@ -47,7 +47,7 @@ TExport2Man = class
 
     private
         STL : TStringList;
-        Index : integer;
+        Index : integer;        // A 'regional', keep track of were in content we are
         OutFileName : string;   // Gets the FFName of output file.
 
         procedure DoGeneric();
@@ -244,12 +244,12 @@ begin
 end;
 
 procedure TExport2Man.DoGeneric();
-var
-    St : string;
+//var
+    //St : string;
 begin
     while Index < STL.count do begin
         if MyStrCmp('<size:huge>', STL[Index]) then exit;   // Thats next header;
-        St := STL[Index];
+        //St := STL[Index];
         // do something with it  ??
         inc(Index);
     end;

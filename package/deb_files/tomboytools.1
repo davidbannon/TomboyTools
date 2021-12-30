@@ -14,7 +14,7 @@ tomboytools \- import and export Tomboy notes, various formats supported.
 .SH SYNOPSIS
 tomboytools  [\-s SRC_Dir]  [\-d DEST_Dir]  (for GUI mode)
 
-tomboytools  \-a  \-\-action=[note2md; note2txt; md2note; txt2note] OTHER_OPTIONS (for command line mode)
+tomboytools  \-a  \-\-action=[note2md; note2txt; md2note; txt2note; note2man] OTHER_OPTIONS (for command line mode)
 
 .SH DESCRIPTION
 A tool that can be used to export or import Tomboy notes, for use with tomboy\-ng, Tomboy or possibly, GNote.  Will export notes to mark down (in a subset of commonMark), plain text, HTML (optionally following internal Tomboy note links) or Man Page.
@@ -25,20 +25,20 @@ When exporting to Man Page, you should use the Man Page template or, in tomboy\-
 
 .SH OPTIONS
 .TP
-\-a  \-\-action=[note2md; note2txt; md2note; txt2note, note2pot]
+\-a  \-\-action=[note2md; note2txt; md2note; txt2note, note2man]
 Use in command line mode, choose the output format.
 
 .TP
 \-s \-\-source=[dir or KEY]
-The directory where input files are to be found, useful in both command line and GUI mode.
+The directory where input files are to be found, useful in both command line and GUI mode. For importing, defaults to current directory.
 
 .TP
 \-d  \-\-destination=[dir or KEY]
-The directory where output files will be written, useful in both command line and GUI mode.
+The directory where output files will be written, useful in both command line and GUI mode. For exporting, defaults to current directory.
 
 .TP
 \-b  \-\-notebook="Notebook Name"
-The name of a Notebook containing the notes you wish exported.
+The name of a Notebook containing the notes you wish exported. This means tomboy\-ng or Tomboy Notebook (or, possibly, a GNote one).
 
 .TP
 \-n  \-\-note="Note Name"
@@ -46,7 +46,7 @@ The title of a note you wish to export.
 
 .TP
 \-f  \-\-file="File Name"
-The file name of a note (without path) you wish to import. The note will be looked for in the source directory, \-s above.
+The file name of a note (without path) you wish to import (or, in the case of note2man, export or convert). The note will be looked for in the source directory, \-s above.
 
 .TP
 \-t  \-\-title\-line
@@ -64,6 +64,14 @@ Print some example command lines and exit.
 \-\-help
 Print this help and exit.
 
+.SH MAN PAGES
+Tomboytools can make a reasonable basic man page from a tomboy\-ng note that was based on a special template (available from TomboyTools Github page, it starts with 903C31...). The template has some basic help text in italics, you can remove it if you like but the conversion ignores italic text.  In most cases you enter text in place of the Italics in pretty much the format a man page is displayed in. There are a number of headings, you can easily add additional ones for free form text.
+
+Its convient to have the note version in your version controlled tree, use tomboy\-ng to edit and maintain it and use TomboyTools to convert it to a .1 file when you are ready. Keep the note as (eg only) my\-app\-man.note, set its title (using tomboy\-ng) to my\-app and TT will make my\-app.1
+
+Error details are embedded in the .1 file, always check !
+
+You may view the tomboytools note and .1 file in https://github.com/davidbannon/TomboyTools/tree/main/package/deb_files
 
 .SH FILES
 

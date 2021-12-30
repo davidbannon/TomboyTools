@@ -4,19 +4,19 @@
   
 <text xml:space="preserve"><note-content version="0.1"><underline>TomboyTools</underline>
 
-<italic>This note can be exported by TomboyTools to a "man page", a Unix Manual page.  Its a basic man page, nothing fancy but probably similar to the man pages on your system now.
+<italic>This note can be exported by TomboyTools to a "man page", a Unix Manual page.  Its a basic man page, nothing fancy but probably similar to the man pages on your system now.</italic>
 
-All text in Italics is ignored, you can remove this 'help' content but you do not need to.
+<italic>All text in Italics is ignored, you can remove this 'help' content but you do not need to.</italic>
 
-First change the note title to what you want the man page title to be.
+<italic>First change the note title to what you want the man page title to be.</italic>
 
-Mark Section Headers in Huge font size, the generally needed ones are already here below for you. Make up new ones as you wish. Some Sections have special requirements, see comments below.
+<italic>Mark Section Headers in Huge font size, the generally needed ones are already here below for you. Make up new ones as you wish. Some Sections have special requirements, see comments below.</italic>
 
-Much of what you put in here is as it appears in the final man page.
+<italic>Much of what you put in here is as it appears in the final man page.</italic>
 
-To display in man format, use this -
+<italic>To display in man format, use this -</italic>
 
-nroff -man  my_application.1</italic>
+<italic>nroff -man  my_application.1</italic>
 
 
 <size:huge>NAME</size:huge>
@@ -25,7 +25,7 @@ tomboytools - import and export Tomboy notes, various formats supported.
 <size:huge>SYNOPSIS</size:huge>
 tomboytools  [-s SRC_Dir]  [-d DEST_Dir]  (for GUI mode)
 
-tomboytools  -a  --action=[note2md; note2txt; md2note; txt2note] OTHER_OPTIONS (for command line mode)
+tomboytools  -a  --action=[note2md; note2txt; md2note; txt2note; note2man] OTHER_OPTIONS (for command line mode)
 
 <size:huge>DESCRIPTION</size:huge>
 A tool that can be used to export or import Tomboy notes, for use with tomboy-ng, Tomboy or possibly, GNote.  Will export notes to mark down (in a subset of commonMark), plain text, HTML (optionally following internal Tomboy note links) or Man Page.
@@ -35,23 +35,23 @@ The application will run in command line mode if it is provide sufficent paramet
 When exporting to Man Page, you should use the Man Page template or, in tomboy-ng Single Note Mode, rename the template to your application name. The template has instructions.
 
 <size:huge>OPTIONS</size:huge>
--a  --action=[note2md; note2txt; md2note; txt2note, note2pot]
+-a  --action=[note2md; note2txt; md2note; txt2note, note2man]
 Use in command line mode, choose the output format.
 
 -s --source=[dir or KEY]
-The directory where input files are to be found, useful in both command line and GUI mode.
+The directory where input files are to be found, useful in both command line and GUI mode. For importing, defaults to current directory.
 
 -d  --destination=[dir or KEY]
-The directory where output files will be written, useful in both command line and GUI mode.
+The directory where output files will be written, useful in both command line and GUI mode. For exporting, defaults to current directory.
 
 -b  --notebook="Notebook Name"
-The name of a Notebook containing the notes you wish exported.
+The name of a Notebook containing the notes you wish exported. This means tomboy-ng or Tomboy Notebook (or, possibly, a GNote one).
 
 -n  --note="Note Name"
 The title of a note you wish to export.
 
 -f  --file="File Name"
-The file name of a note (without path) you wish to import. The note will be looked for in the source directory, -s above.
+The file name of a note (without path) you wish to import (or, in the case of note2man, export or convert). The note will be looked for in the source directory, -s above.
 
 -t  --title-line
 Note Title is the first line of the source file. The output file will have the same file name as the input file.
@@ -65,6 +65,14 @@ Print some example command lines and exit.
 --help
 Print this help and exit.
 
+<size:huge>MAN PAGES</size:huge>
+Tomboytools can make a reasonable basic man page from a tomboy-ng note that was based on a special template (available from TomboyTools Github page, it starts with 903C31...). The template has some basic help text in italics, you can remove it if you like but the conversion ignores italic text.  In most cases you enter text in place of the Italics in pretty much the format a man page is displayed in. There are a number of headings, you can easily add additional ones for free form text.
+
+Its convient to have the note version in your version controlled tree, use tomboy-ng to edit and maintain it and use TomboyTools to convert it to a .1 file when you are ready. Keep the note as (eg only) my-app-man.note, set its title (using tomboy-ng) to my-app and TT will make my-app.1
+
+Error details are embedded in the .1 file, always check !
+
+You may view the tomboytools note and .1 file in https://github.com/davidbannon/TomboyTools/tree/main/package/deb_files
 
 <size:huge>FILES</size:huge>
 
@@ -80,14 +88,14 @@ https://github.com/davidbannon/TomboyTools
 
 
 </note-content></text>
-  <last-change-date>2021-08-04T22:39:23.6130969+10:00</last-change-date>
-  <last-metadata-change-date>2021-08-04T22:39:23.6130969+10:00</last-metadata-change-date>
+  <last-change-date>2021-12-30T14:30:08.3364875+11:00</last-change-date>
+  <last-metadata-change-date>2021-12-30T14:30:08.3364875+11:00</last-metadata-change-date>
   <create-date>2021-08-01T19:13:24.7238449+10:00</create-date>
   <cursor-position>1</cursor-position>
   <selection-bound-position>1</selection-bound-position>
-  <width>841</width>
+  <width>1149</width>
   <height>599</height>
-  <x>974</x>
-  <y>65</y>
+  <x>535</x>
+  <y>93</y>
   <open-on-startup>False</open-on-startup>
 </note>

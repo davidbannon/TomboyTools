@@ -439,8 +439,8 @@ var
     HTTP : integer;
 
     function ValidWebLength() : integer;
-    var
-        Offset : integer;
+    {var
+        Offset : integer; }
     begin
         result := 0;
         if (Start > 1) and (St[Start-1] <> ' ')  then exit;             // no leading whitespace
