@@ -6,13 +6,19 @@
 
 <italic>This note can be exported by TomboyTools to a "man page", a Unix Manual page.  Its a basic man page, nothing fancy but probably similar to the man pages on your system now.
 
-All text in Italics is ignored, you can remove this 'help' content but you do not need to.
+All text in Italics is ignored, you can remove this 'help' content but you do not need to. You add your content in place of the italic prompts below, remember to remove the italic attribute as you go.
 
-First change the note title to what you want the man page title to be.
+First change the note title to what you want the man page title to be, eg myapplication
 
-Mark Section Headers in Huge font size, the generally needed ones are already here below for you. Make up new ones as you wish. Some Sections have special requirements, see comments below.
+Mark Section Headers in Huge font size (Ctrl-4), the generally needed ones are already here below for you. Make up new ones as you wish. Some Sections have special requirements, see comments below.
 
 Much of what you put in here is as it appears in the final man page.
+
+To convert the note to man.1 format, use tomboytools in the directory containing this note -
+
+tomboytools -s ./ -d ./
+
+And select man page and the note you wish to convert.
 
 To display in man format, use this -
 
@@ -23,7 +29,7 @@ nroff -man  my_application.1</italic>
 <italic>Enter command and a short description.  If you put a space and a digit after the name, it will be used in the man page catagory. Else, it will be    .1</italic>
 
 <size:huge>SYNOPSIS</size:huge>
-<italic>Enter command and each option wrapped in square brackets and any required parameters after that.</italic>
+<italic>Enter the command and each option wrapped in square brackets and any required parameters after that. eg myapplication [-h] [--some-opt=something]</italic>
 
 <size:huge>DESCRIPTION</size:huge>
 <italic>Enter one or more paragraphs of free form text.</italic>
